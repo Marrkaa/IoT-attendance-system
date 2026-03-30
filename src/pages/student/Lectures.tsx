@@ -1,0 +1,102 @@
+import { BookOpen, Clock, MapPin, User } from 'lucide-react';
+import { PageHeader } from '../../components';
+import { mockLectures, mockEnrollments } from '../../mock-data/data';
+import { useAuth } from '../../store/AuthContext';
+import { formatTime } from '../../utils';
+
+export const StudentLecturesPage = () => {
+  const { user } = useAuth();
+
+  const enrolledLectureIds = mockEnrollments
+    .filter(e => e.studentId === user?.id)
+    .map(e => e.lectureId);
+
+  const enrolledLectures = mockLectures.filter(l => enrolledLectureIds.includes(l.id));
+  const availableLectures = mockLectures.filter(l => !enrolledLectureIds.includes(l.id));
+
+  const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+  return (
+    <div>
+      <PageHeader
+        title="My Lectures"
+        subtitle={`You are enrolled in ${enrolledLectures.length} lectures`}
+        action={
+          <button className="btn btn-outline">
+            <BookOpen size={16} /> Browse Catalog
+          </button>
+        }
+      />
+
+      {/* Enrolled Lectures */}
+      <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Enrolled Lectures</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6" style={{ marginBottom: '2rem' }}>
+        {enrolledLectures.map(lecture => (
+          <div className="card" key={lecture.id}>
+            <div className="card-header">
+              <h3 className="card-title" style={{ color: 'var(--primary)' }}>{lecture.title}</h3>
+              <span className="badge badge-success">Enrolled</span>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>{lecture.description}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.875rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                <User size={14} />
+                <span>{lecture.lecturer?.firstName} {lecture.lecturer?.lastName}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                <MapPin size={14} />
+                <span>{lecture.room?.name}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                <Clock size={14} />
+                <span>{formatTime(lecture.startTime)} - {formatTime(lecture.endTime)}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                <BookOpen size={14} />
+                <span>{lecture.dayOfWeek !== undefined ? dayNames[lecture.dayOfWeek] : 'TBD'}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Available Lectures */}
+      {availableLectures.length > 0 && (
+        <>
+          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Available Lectures</h2>
+          <div className="card">
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Lecture</th>
+                    <th>Lecturer</th>
+                    <th>Schedule</th>
+                    <th>Room</th>
+                    <th>Enrolled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {availableLectures.map(l => (
+                    <tr key={l.id}>
+                      <td>
+                        <div style={{ fontWeight: 500 }}>{l.title}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{l.description}</div>
+                      </td>
+                      <td style={{ fontSize: '0.875rem' }}>{l.lecturer?.firstName} {l.lecturer?.lastName}</td>
+                      <td style={{ fontSize: '0.875rem' }}>
+                        {l.dayOfWeek !== undefined ? dayNames[l.dayOfWeek] : '—'}, {formatTime(l.startTime)}
+                      </td>
+                      <td style={{ fontSize: '0.875rem' }}>{l.room?.name}</td>
+                      <td><span className="badge" style={{ backgroundColor: '#EEF2FF', color: 'var(--primary)' }}>{l.enrolledCount} students</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
