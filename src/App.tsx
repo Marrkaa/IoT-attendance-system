@@ -7,6 +7,7 @@ import { DashboardLayout } from './layouts/DashboardLayout';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
+import { ResetPassword } from './pages/auth/ResetPassword';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/Dashboard';
@@ -14,6 +15,9 @@ import { UsersPage } from './pages/admin/Users';
 import { RoomsPage } from './pages/admin/Rooms';
 import { LecturesPage } from './pages/admin/Lectures';
 import { SchedulesPage } from './pages/admin/Schedules';
+import { DeviceManagementPage } from './pages/admin/DeviceManagement';
+import { RouterStatusPage } from './pages/admin/RouterStatus';
+import { RadiusConfigPage } from './pages/admin/RadiusConfig';
 
 // Lecturer Pages
 import { LecturerDashboard } from './pages/lecturer/Dashboard';
@@ -25,6 +29,7 @@ import { ReportsPage } from './pages/lecturer/Reports';
 import { StudentDashboard } from './pages/student/Dashboard';
 import { StudentLecturesPage } from './pages/student/Lectures';
 import { HistoryPage } from './pages/student/History';
+import { StudentDevicesPage } from './pages/student/Devices';
 
 function App() {
   return (
@@ -36,6 +41,7 @@ function App() {
             <Route path="/" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
           </Route>
 
           {/* Admin Routes */}
@@ -45,6 +51,9 @@ function App() {
             <Route path="/admin/rooms" element={<RoomsPage />} />
             <Route path="/admin/lectures" element={<LecturesPage />} />
             <Route path="/admin/schedules" element={<SchedulesPage />} />
+            <Route path="/admin/devices" element={<DeviceManagementPage />} />
+            <Route path="/admin/router-status" element={<RouterStatusPage />} />
+            <Route path="/admin/radius" element={<RadiusConfigPage />} />
           </Route>
 
           {/* Lecturer Routes */}
@@ -60,6 +69,7 @@ function App() {
             <Route path="/student/dashboard" element={<StudentDashboard />} />
             <Route path="/student/lectures" element={<StudentLecturesPage />} />
             <Route path="/student/history" element={<HistoryPage />} />
+            <Route path="/student/devices" element={<StudentDevicesPage />} />
           </Route>
 
           {/* Fallback */}

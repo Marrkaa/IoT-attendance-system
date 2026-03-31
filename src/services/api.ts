@@ -1,36 +1,52 @@
-// Base API configuration
-// When integrating with ASP.NET Core backend, change this URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Simulated network delay for mock data
-const MOCK_DELAY = 500;
+function getAuthToken(): string | null {
+  return localStorage.getItem('token');
+}
 
-export const simulateDelay = (ms = MOCK_DELAY) =>
-  new Promise(resolve => setTimeout(resolve, ms));
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
+  };
 
-// Future: Replace with real fetch calls
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: response.statusText }));
+    throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  if (response.status === 204) return undefined as T;
+  return response.json();
+}
+
 export const apiClient = {
-  get: async <T>(endpoint: string): Promise<T> => {
-    await simulateDelay();
-    // Future implementation:
-    // const response = await fetch(`${API_BASE_URL}${endpoint}`);
-    // if (!response.ok) throw new Error(response.statusText);
-    // return response.json();
-    throw new Error(`GET ${API_BASE_URL}${endpoint} - Not connected to backend`);
-  },
+  get: <T>(endpoint: string) => request<T>(endpoint),
 
-  post: async <T>(endpoint: string, _data: unknown): Promise<T> => {
-    await simulateDelay();
-    throw new Error(`POST ${API_BASE_URL}${endpoint} - Not connected to backend`);
-  },
+  post: <T>(endpoint: string, data?: unknown) =>
+    request<T>(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
 
-  put: async <T>(endpoint: string, _data: unknown): Promise<T> => {
-    await simulateDelay();
-    throw new Error(`PUT ${API_BASE_URL}${endpoint} - Not connected to backend`);
-  },
+  put: <T>(endpoint: string, data?: unknown) =>
+    request<T>(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
 
-  delete: async (endpoint: string): Promise<void> => {
-    await simulateDelay();
-    throw new Error(`DELETE ${API_BASE_URL}${endpoint} - Not connected to backend`);
-  },
+  delete: (endpoint: string) =>
+    request<void>(endpoint, { method: 'DELETE' }),
 };

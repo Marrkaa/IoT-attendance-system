@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Plus, Wifi, WifiOff, Edit2, Trash2 } from 'lucide-react';
 import { mockRooms } from '../../mock-data/data';
-import { PageHeader, Modal } from '../../components';
+import { PageHeader, Modal, ConfirmDialog } from '../../components';
 import type { Room } from '../../types';
 
 export const RoomsPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editRoom, setEditRoom] = useState<Room | null>(null);
   const [form, setForm] = useState({ name: '', location: '', capacity: 30, routerMac: '' });
+  const [deleteTarget, setDeleteTarget] = useState<Room | null>(null);
 
   const openCreate = () => {
     setEditRoom(null);
@@ -68,7 +69,7 @@ export const RoomsPage = () => {
               <button className="btn btn-outline" style={{ fontSize: '0.75rem', flex: 1 }} onClick={() => openEdit(room)}>
                 <Edit2 size={12} /> Edit
               </button>
-              <button className="btn btn-outline" style={{ fontSize: '0.75rem', flex: 1, color: 'var(--danger)' }}>
+              <button className="btn btn-outline" style={{ fontSize: '0.75rem', flex: 1, color: 'var(--danger)' }} onClick={() => setDeleteTarget(room)}>
                 <Trash2 size={12} /> Delete
               </button>
             </div>
@@ -103,6 +104,14 @@ export const RoomsPage = () => {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => setDeleteTarget(null)}
+        title="Delete Room"
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
+      />
     </div>
   );
 };

@@ -8,6 +8,7 @@ export interface User {
   role: Role;
   avatarUrl?: string;
   isActive?: boolean;
+  createdAt?: string;
 }
 
 export interface Room {
@@ -17,29 +18,50 @@ export interface Room {
   location: string;
   routerMac?: string;
   isOnline?: boolean;
+  ioTNode?: IoTNode;
+  createdAt?: string;
 }
 
 export interface IoTNode {
   id: string;
   roomId: string;
   macAddress: string;
-  status: 'online' | 'offline' | 'maintenance';
-  connectedDevices: number;
-  lastSeen: string;
+  hostname: string;
+  ipAddress?: string;
+  status: 'Online' | 'Offline' | 'Maintenance';
+  lastSeen?: string;
+  firmwareVersion?: string;
+  model: string;
+  hotspotSsid: string;
+  signalThresholdDbm: number;
+  connectedDevicesCount: number;
 }
 
 export interface Lecture {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   lecturerId: string;
   roomId: string;
+  // Backward-compatible fields used by current mock pages.
   startTime: string;
   endTime: string;
-  dayOfWeek?: number; // 0=Mon ... 4=Fri
+  dayOfWeek: number; // 0=Monday ... 6=Sunday
   lecturer?: User;
   room?: Room;
   enrolledCount?: number;
+  schedules?: Schedule[];
+}
+
+export interface Schedule {
+  id: string;
+  lectureId: string;
+  dayOfWeek: number; // 0=Monday ... 6=Sunday
+  startTime: string; // "HH:mm"
+  endTime: string;   // "HH:mm"
+  validFrom?: string;
+  validUntil?: string;
+  lecture?: Lecture;
 }
 
 export interface Enrollment {
@@ -57,10 +79,17 @@ export interface AttendanceRecord {
   id: string;
   lectureId: string;
   studentId: string;
-  status: AttendanceStatus;
+  scheduleId?: string;
+  date?: string;
   timestamp: string;
-  signalStrength?: number;
+  status: AttendanceStatus;
+  checkInTime?: string;
+  checkOutTime?: string;
+  signalStrength: number;
+  signalStrengthDbm?: number;
+  avgSignalStrengthDbm?: number;
   connectionDurationMinutes?: number;
+  isManualOverride?: boolean;
   student?: User;
   lecture?: Lecture;
 }
@@ -73,16 +102,91 @@ export interface AttendanceStats {
   attendancePercentage: number;
 }
 
-export interface Schedule {
+export interface StudentDevice {
   id: string;
-  lectureId: string;
-  dayOfWeek: number; // 0=Monday ... 4=Friday
-  startTime: string; // "HH:mm"
-  endTime: string;   // "HH:mm"
-  lecture?: Lecture;
+  studentId: string;
+  macAddress: string;
+  deviceName?: string;
+  isActive: boolean;
+  registeredAt: string;
+  lastSeen?: string;
+  studentName?: string;
 }
 
-// API response wrapper for future backend integration
+export interface RadiusAccount {
+  id: string;
+  userId: string;
+  radiusUsername: string;
+  isEnabled: boolean;
+  createdAt: string;
+}
+
+export interface WifiConnectionLog {
+  id: string;
+  iotNodeId: string;
+  clientMacAddress: string;
+  clientIpAddress?: string;
+  clientHostname?: string;
+  signalStrengthDbm: number;
+  eventType: 'Connected' | 'Disconnected' | 'SignalUpdate';
+  timestamp: string;
+  wifiInterface?: string;
+}
+
+export interface LiveAttendanceData {
+  studentId: string;
+  studentName: string;
+  deviceMac?: string;
+  signalStrengthDbm?: number;
+  connectedSince?: string;
+  connectionMinutes?: number;
+  status: 'Connected' | 'Disconnected';
+}
+
+export interface RouterStatus {
+  ioTNodeId: string;
+  status: string;
+  connectedClients: number;
+  lastPolled?: string;
+  clients: ConnectedClient[];
+}
+
+export interface ConnectedClient {
+  macAddress: string;
+  ipAddress?: string;
+  hostname?: string;
+  signalStrengthDbm: number;
+  matchedStudentName?: string;
+  matchedStudentId?: string;
+}
+
+export interface DailyAttendanceSummary {
+  date: string;
+  present: number;
+  late: number;
+  absent: number;
+  total: number;
+}
+
+// Auth types
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+// API response wrapper
 export interface ApiResponse<T> {
   data: T;
   success: boolean;

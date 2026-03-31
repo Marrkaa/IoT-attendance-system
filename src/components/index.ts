@@ -4,3 +4,7 @@ export { StatusBadge, RoleBadge } from './StatusBadge';
 export { PageHeader } from './PageHeader';
 export { Avatar } from './Avatar';
 export { EmptyState } from './EmptyState';
+export { ConfirmDialog } from './ConfirmDialog';
+export { DeviceManagementTable } from './iot/DeviceManagementTable';
+export { RouterStatusPanel } from './iot/RouterStatusPanel';
+export { RadiusInfoCard } from './iot/RadiusInfoCard';

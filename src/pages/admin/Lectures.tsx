@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { Plus, Clock, MapPin, Users } from 'lucide-react';
+import { Plus, Clock, MapPin, Users, Trash2 } from 'lucide-react';
 import { mockLectures, mockRooms, mockUsers, mockEnrollments } from '../../mock-data/data';
-import { PageHeader, Modal, Avatar } from '../../components';
+import { PageHeader, Modal, Avatar, ConfirmDialog } from '../../components';
 import { formatTime } from '../../utils';
+import type { Lecture } from '../../types';
 
 export const LecturesPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedLectureId, setSelectedLectureId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Lecture | null>(null);
 
   const lecturers = mockUsers.filter(u => u.role === 'Lecturer');
   const students = mockUsers.filter(u => u.role === 'Student');
@@ -76,6 +78,9 @@ export const LecturesPage = () => {
                       <button className="btn btn-primary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem' }} onClick={() => openAssign(l.id)}>
                         <Users size={12} /> Assign
                       </button>
+                      <button className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem', color: 'var(--danger)' }} onClick={() => setDeleteTarget(l)}>
+                        <Trash2 size={12} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -136,6 +141,14 @@ export const LecturesPage = () => {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => setDeleteTarget(null)}
+        title="Delete Lecture"
+        message={`Are you sure you want to delete "${deleteTarget?.title}"? All enrollments and attendance records will be lost.`}
+      />
 
       {/* Assign Students Modal */}
       <Modal isOpen={assignModalOpen} onClose={() => setAssignModalOpen(false)} title="Assign Students" size="md">

@@ -3,3 +3,6 @@ export { userService } from './userService';
 export { lectureService } from './lectureService';
 export { attendanceService } from './attendanceService';
 export { roomService } from './roomService';
+export { deviceService } from './deviceService';
+export { iotNodeService } from './iotNodeService';
+export { radiusService } from './radiusService';

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Lock, User, UserPlus } from 'lucide-react';
+import { authService } from '../../services/authService';
 import type { Role } from '../../types';
 
 export const Register = () => {
@@ -29,16 +30,20 @@ export const Register = () => {
       return;
     }
 
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (form.password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 
     setLoading(true);
-    // Simulate registration
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setLoading(false);
-    setSuccess(true);
+    try {
+      await authService.register(form.email, form.password, form.firstName, form.lastName);
+      setSuccess(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (success) {

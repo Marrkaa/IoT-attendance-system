@@ -1,4 +1,16 @@
-import type { User, Lecture, AttendanceRecord, Room, Schedule, Enrollment } from '../types';
+import type {
+  User,
+  Lecture,
+  AttendanceRecord,
+  Room,
+  Schedule,
+  Enrollment,
+  IoTNode,
+  StudentDevice,
+  RouterStatus,
+  ConnectedClient,
+  RadiusAccount,
+} from '../types';
 
 export const mockUsers: User[] = [
   { id: '1', email: 'admin@school.edu', firstName: 'System', lastName: 'Admin', role: 'Administrator', isActive: true },
@@ -126,6 +138,109 @@ export const mockAttendance: AttendanceRecord[] = [
   { id: 'a12', lectureId: 'l5', studentId: '9', status: 'Late', timestamp: makeTime(11, 12), signalStrength: -68, connectionDurationMinutes: 70, student: mockUsers[8], lecture: mockLectures[4] },
   { id: 'a13', lectureId: 'l5', studentId: '10', status: 'Present', timestamp: makeTime(10, 55), signalStrength: -40, connectionDurationMinutes: 90, student: mockUsers[9], lecture: mockLectures[4] },
 ];
+
+/** IoT / Teltonika RUTX11 mazgai (hotspot + station dump integracija) */
+export const mockIoTNodes: IoTNode[] = [
+  {
+    id: 'iot1',
+    roomId: 'r1',
+    macAddress: '10:11:22:33:44:01',
+    hostname: 'rutx-a101',
+    ipAddress: '192.168.50.1',
+    status: 'Online',
+    lastSeen: new Date().toISOString(),
+    firmwareVersion: 'RUTX_R_00.02.7',
+    model: 'RUTX11',
+    hotspotSsid: 'IoT-A101',
+    signalThresholdDbm: -70,
+    connectedDevicesCount: 8,
+  },
+  {
+    id: 'iot2',
+    roomId: 'r2',
+    macAddress: '10:11:22:33:44:02',
+    hostname: 'rutx-b204',
+    ipAddress: '192.168.51.1',
+    status: 'Online',
+    lastSeen: new Date().toISOString(),
+    firmwareVersion: 'RUTX_R_00.02.7',
+    model: 'RUTX11',
+    hotspotSsid: 'IoT-B204',
+    signalThresholdDbm: -72,
+    connectedDevicesCount: 4,
+  },
+  {
+    id: 'iot3',
+    roomId: 'r3',
+    macAddress: '10:11:22:33:44:03',
+    hostname: 'rutx-c001',
+    ipAddress: '192.168.52.1',
+    status: 'Maintenance',
+    lastSeen: undefined,
+    firmwareVersion: 'RUTX_R_00.02.6',
+    model: 'RUTX11',
+    hotspotSsid: 'IoT-C001',
+    signalThresholdDbm: -68,
+    connectedDevicesCount: 0,
+  },
+];
+
+/** Studentų mobilūs įrenginiai (MAC susiejimas su lankomumu) */
+export const mockStudentDevices: StudentDevice[] = [
+  {
+    id: 'sd1',
+    studentId: '3',
+    macAddress: 'AA:BB:CC:DD:EE:01',
+    deviceName: 'iPhone 14',
+    isActive: true,
+    registeredAt: '2026-01-15T10:00:00Z',
+    lastSeen: new Date().toISOString(),
+    studentName: 'Alice Smith',
+  },
+  {
+    id: 'sd2',
+    studentId: '4',
+    macAddress: 'AA:BB:CC:DD:EE:02',
+    deviceName: 'Samsung Galaxy',
+    isActive: true,
+    registeredAt: '2026-01-16T12:00:00Z',
+    lastSeen: new Date().toISOString(),
+    studentName: 'Bob Johnson',
+  },
+  {
+    id: 'sd3',
+    studentId: '5',
+    macAddress: 'AA:BB:CC:DD:EE:03',
+    deviceName: 'Pixel 8',
+    isActive: false,
+    registeredAt: '2026-01-10T09:00:00Z',
+    studentName: 'Charlie Brown',
+  },
+];
+
+/** RADIUS paskyros (hotspot prisijungimui; sutampa su backend RadiusAccount) */
+export const mockRadiusAccounts: RadiusAccount[] = [
+  { id: 'ra1', userId: '3', radiusUsername: 'student1@school.edu', isEnabled: true, createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'ra2', userId: '4', radiusUsername: 'student2@school.edu', isEnabled: true, createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'ra3', userId: '5', radiusUsername: 'student3@school.edu', isEnabled: true, createdAt: '2026-01-01T00:00:00Z' },
+];
+
+const mockConnectedClients: ConnectedClient[] = [
+  { macAddress: 'AA:BB:CC:DD:EE:01', ipAddress: '192.168.50.42', hostname: 'iphone', signalStrengthDbm: -48, matchedStudentName: 'Alice Smith', matchedStudentId: '3' },
+  { macAddress: 'AA:BB:CC:DD:EE:99', ipAddress: '192.168.50.43', hostname: 'android', signalStrengthDbm: -62, matchedStudentName: undefined, matchedStudentId: undefined },
+];
+
+/** Demo routerio būsena (GET /api/iot-nodes/{id}/status) */
+export function buildMockRouterStatus(ioTNodeId: string): RouterStatus {
+  const node = mockIoTNodes.find((n) => n.id === ioTNodeId);
+  return {
+    ioTNodeId,
+    status: node?.status ?? 'Offline',
+    connectedClients: node?.connectedDevicesCount ?? 0,
+    lastPolled: node?.lastSeen ?? new Date().toISOString(),
+    clients: node?.status === 'Online' ? [...mockConnectedClients] : [],
+  };
+}
 
 export const mockSchedules: Schedule[] = [
   { id: 's1', lectureId: 'l1', dayOfWeek: 0, startTime: '10:00', endTime: '11:30', lecture: mockLectures[0] },
