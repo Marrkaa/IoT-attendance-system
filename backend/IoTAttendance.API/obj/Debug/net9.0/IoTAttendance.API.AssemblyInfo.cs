@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IoTAttendance.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c791a4dacd0ff122f0f8437af71803fa595703e8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e009bbf1fd9218106ec6cdae0ebc2c2421c4b436")]
 [assembly: System.Reflection.AssemblyProductAttribute("IoTAttendance.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IoTAttendance.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

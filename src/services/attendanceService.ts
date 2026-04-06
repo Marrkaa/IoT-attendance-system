@@ -76,11 +76,7 @@ export const attendanceService = {
   },
 
   getLiveAttendance: async (lectureId: string): Promise<LiveAttendanceData[]> => {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return [];
-    }
-
+    // Live ekranas visada iš realaus API (station dump + MAC), ne iš mock.
     return apiClient.get<LiveAttendanceData[]>(`/attendance/live/${lectureId}`);
   },
 

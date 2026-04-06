@@ -1,6 +1,8 @@
+using System.Text;
 using IoTAttendance.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace IoTAttendance.API.Controllers;
 
@@ -9,8 +11,24 @@ namespace IoTAttendance.API.Controllers;
 public class RadiusController : ControllerBase
 {
     private readonly RadiusService _radiusService;
+    private readonly IConfiguration _config;
 
-    public RadiusController(RadiusService radiusService) => _radiusService = radiusService;
+    public RadiusController(RadiusService radiusService, IConfiguration config)
+    {
+        _radiusService = radiusService;
+        _config = config;
+    }
+
+    private static string? FormValue(IFormCollection form, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (form.TryGetValue(key, out var v) && !string.IsNullOrEmpty(v))
+                return v.ToString();
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// RADIUS authentication endpoint.
@@ -19,18 +37,69 @@ public class RadiusController : ControllerBase
     /// </summary>
     [HttpPost("authenticate")]
     [AllowAnonymous] // RADIUS server uses shared secret
-    public async Task<IActionResult> Authenticate(
-        [FromForm] string username,
-        [FromForm] string password)
+    public async Task<IActionResult> Authenticate(CancellationToken cancellationToken)
     {
-        var isValid = await _radiusService.ValidateCredentialsAsync(username, password);
+        // FreeRADIUS rlm_rest dažnai nesiunčia Content-Type; [FromForm] nepriveda laukų → visada 401.
+        var (username, password) = await ReadRadiusAuthFormAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(username))
+            return BadRequest(new { error = "Trūksta username." });
+
+        var isValid = await _radiusService.ValidateCredentialsAsync(username, password ?? string.Empty);
         if (!isValid)
             return Unauthorized(new { Reply_Message = "Autentifikacija nepavyko." });
 
-        return Ok(new
+        // rlm_rest: kai kurios versijos blogai tvarko tuščią 200 arba JSON – paprastas text/plain.
+        return Content("OK", "text/plain; charset=utf-8", Encoding.UTF8);
+    }
+
+    private async Task<(string? Username, string? Password)> ReadRadiusAuthFormAsync(CancellationToken ct)
+    {
+        if (Request.HasFormContentType)
         {
-            Reply_Message = "Autentifikacija sėkminga."
-        });
+            var form = await Request.ReadFormAsync(ct);
+            return (FormValue(form, "username", "User-Name"), FormValue(form, "password", "User-Password"));
+        }
+
+        Request.EnableBuffering();
+        using var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true);
+        var body = await reader.ReadToEndAsync(ct);
+        Request.Body.Position = 0;
+        if (string.IsNullOrWhiteSpace(body))
+            return (null, null);
+
+        var q = QueryHelpers.ParseQuery(body);
+        string? g(string a, string b) =>
+            q.TryGetValue(a, out var va) && !string.IsNullOrEmpty(va) ? va.ToString()
+            : q.TryGetValue(b, out var vb) && !string.IsNullOrEmpty(vb) ? vb.ToString()
+            : null;
+
+        return (g("username", "User-Name"), g("password", "User-Password"));
+    }
+
+    /// <summary>
+    /// RADIUS Accounting (Accounting-Request). FreeRADIUS rest modulis kviečia po sėkmingos autentifikacijos,
+    /// kad būtų užregistruotas telefono MAC (<c>Calling-Station-Id</c>) prie studento įrenginių.
+    /// </summary>
+    [HttpPost("accounting")]
+    [AllowAnonymous]
+    [Consumes("application/x-www-form-urlencoded", "multipart/form-data")]
+    public async Task<IActionResult> Accounting([FromHeader(Name = "X-Api-Key")] string? apiKeyFromHeader)
+    {
+        var form = await Request.ReadFormAsync();
+        var apiKey = apiKeyFromHeader ?? FormValue(form, "api_key", "api-key");
+        var expected = _config["Router:ApiKey"];
+        if (string.IsNullOrEmpty(expected) || apiKey != expected)
+            return Unauthorized(new { error = "Invalid API key." });
+        var userName = FormValue(form, "User-Name", "username");
+        var callingStationId = FormValue(form, "Calling-Station-Id", "calling-station-id");
+        var acctStatusType = FormValue(form, "Acct-Status-Type", "acct-status-type");
+        var acctUnique = FormValue(form, "Acct-Unique-Session-Id", "acct-unique-session-id");
+        var acctSessionTime = FormValue(form, "Acct-Session-Time", "acct-session-time");
+        var framedIp = FormValue(form, "Framed-IP-Address", "framed-ip-address");
+
+        await _radiusService.ProcessAccountingAsync(
+            userName, callingStationId, acctStatusType, acctUnique, acctSessionTime, framedIp);
+        return Ok();
     }
 
     [HttpGet("account/{userId}")]

@@ -158,17 +158,43 @@ public class RouterPollingService
                     .FirstOrDefaultAsync()
                 : null;
 
-            var isConnected = latestLog != null;
-            var connectionMinutes = firstConnection != null
-                ? (DateTime.UtcNow - firstConnection.Timestamp).TotalMinutes
-                : (double?)null;
+            var todayUtc = DateTime.UtcNow.Date;
+            HotspotSession? radiusSession = null;
+            if (iotNode != null)
+            {
+                radiusSession = await _db.HotspotSessions
+                    .Where(h =>
+                        h.StudentId == student.Id &&
+                        h.IoTNodeId == iotNode.Id &&
+                        h.IsActive &&
+                        h.EndTime == null &&
+                        h.StartTime >= todayUtc)
+                    .OrderByDescending(h => h.StartTime)
+                    .FirstOrDefaultAsync();
+            }
+
+            var radiusConnected = radiusSession != null;
+            var isConnected = latestLog != null || radiusConnected;
+
+            var deviceMac = activeMacs.FirstOrDefault() ?? radiusSession?.DeviceMac;
+
+            DateTime? connectedSince = firstConnection?.Timestamp ?? radiusSession?.StartTime;
+            double? connectionMinutes = null;
+            if (firstConnection != null)
+                connectionMinutes = (DateTime.UtcNow - firstConnection.Timestamp).TotalMinutes;
+            else if (radiusSession != null)
+            {
+                connectionMinutes = radiusSession.DurationMinutes.HasValue && radiusSession.DurationMinutes > 0
+                    ? radiusSession.DurationMinutes
+                    : (DateTime.UtcNow - radiusSession.StartTime).TotalMinutes;
+            }
 
             result.Add(new LiveAttendanceDto(
                 student.Id,
                 $"{student.FirstName} {student.LastName}",
-                activeMacs.FirstOrDefault(),
+                deviceMac,
                 latestLog?.SignalStrengthDbm,
-                firstConnection?.Timestamp,
+                connectedSince,
                 connectionMinutes,
                 isConnected ? "Connected" : "Disconnected"
             ));

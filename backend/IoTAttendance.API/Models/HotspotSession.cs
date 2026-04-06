@@ -68,6 +68,15 @@ public class HotspotSession
     [MaxLength(200)]
     public string? DisconnectReason { get; set; }
 
+    /// <summary>RADIUS Acct-Unique-Session-Id – susieti Start / Interim / Stop.</summary>
+    [Column("acct_unique_session_id")]
+    [MaxLength(128)]
+    public string? AcctUniqueSessionId { get; set; }
+
+    /// <summary>Paskutinio accounting paketo laikas (arba Start).</summary>
+    [Column("last_accounting_at")]
+    public DateTime? LastAccountingAt { get; set; }
+
     // Navigation
     [ForeignKey("StudentId")]
     public User Student { get; set; } = null!;

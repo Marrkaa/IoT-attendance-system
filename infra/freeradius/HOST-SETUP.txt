@@ -1,0 +1,148 @@
+IoT Attendance – FreeRADIUS ant hosto (pirmas end-to-end testas)
+================================================================
+
+Tikslas: Teltonika → FreeRADIUS (UDP 1812/1813) → tavo API (5000) → Postgres;
+         svetainėje (dėstytojas → Live attendance) matyti „Prisijungęs“.
+
+Prieš tai: paleisk stack’ą (Postgres + API). Svetainė: http://localhost:5173
+Demo captive: student1@school.edu / password (turi būti seed’inta DB).
+
+1) Įdiegti FreeRADIUS (Arch Linux pavyzdys)
+------------------------------------------
+  sudo pacman -S freeradius
+
+Konfigūracijos katalogas dažniausiai: /etc/raddb
+
+2) Automatinis pritaikymas (rekomenduojama)
+------------------------------------------
+Iš projekto šaknies:
+
+  sudo ./infra/freeradius/apply-to-host.sh
+
+Skriptas nukopijuoja clients.d ir rest_iot_api, įjungia modulį, padaro atsarginę
+kopiją į /etc/raddb/default.site.bak.* (ne į sites-enabled/), sugeneruoja EAP
+sertifikatus, pataiso PAP ir accounting, paleidžia radiusd -CX ir systemctl.
+
+Jei anksčiau sukūrei /etc/raddb/sites-enabled/default.bak.* – ištrink tuos failus
+(tai buvo klaida: radiusd bando įkelti viską iš sites-enabled/).
+
+2b) Rankinis variantas (be skripto)
+-----------------------------------
+  sudo cp infra/freeradius/clients.d/99-teltonika.conf /etc/raddb/clients.d/
+  sudo cp infra/freeradius/mods-available/rest_iot_api /etc/raddb/mods-available/
+  sudo ln -sf ../mods-available/rest_iot_api /etc/raddb/mods-enabled/rest_iot_api
+  sudo python3 infra/freeradius/patch-site-default.py /etc/raddb/sites-enabled/default
+
+Jei API ne 127.0.0.1:5000 – redaguok /etc/raddb/mods-available/rest_iot_api
+(authenticate ir accounting uri). api_key eilutėje turi sutapti su
+appsettings.json → Router:ApiKey.
+
+3) Įjungti rest modulį „default“ site (jei nenaudoji skripto)
+---------------------------------------------------------------
+Redaguok /etc/raddb/sites-enabled/default:
+
+  a) Auth-Type PAP { pap } -> rest_iot_api
+  b) Po „accounting {“ pridėk eilutę rest_iot_api
+
+4) EAP sertifikatai (jei radiusd -CX krenta dėl server.pem)
+-----------------------------------------------------------
+  sudo ./infra/freeradius/eap-certs.sh
+
+Arba: cd /etc/raddb/certs && sudo make  (reikia Makefile iš /etc/raddb.default/certs)
+
+5) Sintaksės tikrinimas ir paleidimas
+-------------------------------------
+  sudo radiusd -CX
+
+Arch Linux: systemd unit vadinasi **freeradius.service** (ne radiusd):
+  sudo systemctl enable --now freeradius.service
+  sudo systemctl status freeradius.service
+
+Kitose distro gali būti „radiusd“ arba „freeradius“ – žiūrėk:
+  systemctl list-unit-files | grep -i radius
+
+Arba debug: sudo radiusd -X (terminale matysi paketus).
+
+6) Firewall
+-----------
+Leisk UDP 1812 ir 1813 iš maršrutizatoriaus IP į šį PC (pvz. iptables/nft).
+
+7) Teltonika
+------------
+„RADIUS server #1“ = šio PC LAN IP (tas pats, kur klauso radiusd).
+Secret = Admin123. (kaip clients.d teltonika_lab).
+Jei Teltonikoje „Require Message-Authenticator“ = ON, o atsakymas nepraeina,
+pabandyk OFF arba suderink su FreeRADIUS client nustatymais.
+
+8) Greitas testas be telefono (radtest)
+-----------------------------------------
+Pirmiausia sužinok 127.0.0.1 kliento secret (grep -A8 dažnai nerodo – daug komentarų):
+
+  sudo awk '/^client localhost \{/,/^}/' /etc/raddb/clients.conf
+
+Tada (pakeisk <SECRET> į tą reikšmę, dažnai „testing123“):
+
+  radtest student1@school.edu password 127.0.0.1 0 <SECRET>
+
+Čia „0“ – nas-port numeris. Jei anksčiau kopijavai 99-teltonika.conf su atskiru
+„localhost_radtest“ – pašalink tą bloką iš /etc/raddb/clients.d/ (dublikatas
+su clients.conf gali laužyti radtest).
+
+Jei Access-Accept – auth + REST į API veikia.
+
+9) Svetainėje
+--------------
+Prisijunk dėstytoju (mock arba tikras JWT – jei naudoji API auth).
+Eik į Live attendance, pasirink demo paskaitą. Po telefono prisijungimo
+prie Wi‑Fi ir captive su student1@school.edu turi atsirasti sesija,
+jei routeris siunčia Accounting-Start į FreeRADIUS.
+
+Jei radtest veikia, bet telefonas ne – tikrink Teltonikos IP/secret ir
+ar accounting paketai pasiekia FreeRADIUS (radiusd -X).
+
+10) „sudo radiusd -X“ / systemd → „Address already in use“ port 18120
+----------------------------------------------------------------------
+Inner-tunnel klauso 127.0.0.1:18120; jei jis užimtas, matysi:
+  „Failed binding … port 18120 … inner-tunnel“ – tai ne konfigūracijos klaida.
+
+  sudo systemctl stop freeradius.service
+
+Jei po stop vis tiek klaida – likęs rankinis radiusd (senas „radiusd -X“):
+
+  sudo ss -ulnp | grep 18120
+  # arba: sudo lsof -iUDP:18120
+
+Uždaryk tą procesą (kitame lange Ctrl+C prie „radiusd -X“, arba sudo kill <PID>).
+
+Tada: sudo radiusd -X arba sudo systemctl start freeradius.service
+
+11) Pilnas „client localhost“ blokas (grep -A8 neužtenka – daug komentarų)
+---------------------------------------------------------------------------
+  sudo awk '/^client localhost \{/,/^}/' /etc/raddb/clients.conf
+
+Čia matysi tikrą „secret“ – radtest paskutinis argumentas turi sutapti.
+
+12) radtest = Access-Reject, bet curl į /api/radius/authenticate = 200
+---------------------------------------------------------------------
+  Tai NĖRA Docker vs „lokaliai“ ir ne IP konfliktas: curl ir FreeRADIUS abu
+  kreipiasi į tą patį 127.0.0.1:5000 (Docker – jei portas išmapintas į hostą).
+
+  Jei „sudo radiusd -X“ rodo:
+    „pap: No known good password… Not setting Auth-Type“ ir
+    „ERROR: No Auth-Type found“
+  – authorize fazėje nebuvo nustatytas Auth-Type := PAP, todėl rest_iot_api
+  authenticate sekcijoje niekada neįvyksta (net jei curl = 200).
+
+  Sprendimas: paleisk atnaujintą skriptą iš projekto šaknies:
+    sudo ./infra/freeradius/apply-to-host.sh
+  arba tik patch’ą:
+    sudo python3 infra/freeradius/patch-site-default.py /etc/raddb/sites-enabled/default
+    sudo radiusd -CX && sudo systemctl restart freeradius.service
+
+  Patikra: authorize bloke po „pap“ turi atsirasti komentaras
+  „IoT-Attendance: force Auth-Type PAP for REST“ ir if (&User-Password) { … }.
+
+  Taip pat: authenticate → „Auth-Type PAP { rest_iot_api }“:
+      sudo grep -A5 'Auth-Type PAP' /etc/raddb/sites-enabled/default
+
+  Debug: „sudo radiusd -X“ + radtest – turi atsirasti rest_iot_api / HTTP eilutės.

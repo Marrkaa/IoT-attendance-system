@@ -23,8 +23,16 @@ export function RadiusInfoCard() {
         </li>
         <li style={{ marginTop: '0.5rem' }}>
           <Shield size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />
-          Fizinio buvimo fiksavimui naudojamas atskiras <strong>station dump</strong> skriptas (cron), siunčiantis MAC,
-          IP ir signalo stiprumą į <code style={{ fontSize: '0.8rem' }}>POST /api/iot-nodes/station-dump</code>.
+          <strong>Accounting:</strong> <code style={{ fontSize: '0.8rem' }}>POST /api/radius/accounting</code> +{' '}
+          <code style={{ fontSize: '0.8rem' }}>X-Api-Key</code> — laukai: <code>User-Name</code>,{' '}
+          <code>Calling-Station-Id</code>, <code>Acct-Status-Type</code> (Start/Stop/Interim), pageidautina{' '}
+          <code>Acct-Unique-Session-Id</code>, <code>Acct-Session-Time</code>. Tai pildo <strong>HotspotSession</strong> ir Live
+          attendance be station dump.
+        </li>
+        <li style={{ marginTop: '0.5rem' }}>
+          <Shield size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+          Fizinio buvimo fiksavimui naudojamas <strong>station dump</strong> skriptas (cron), siunčiantis MAC, IP ir signalą į{' '}
+          <code style={{ fontSize: '0.8rem' }}>POST /api/iot-nodes/station-dump</code>.
         </li>
       </ul>
     </div>

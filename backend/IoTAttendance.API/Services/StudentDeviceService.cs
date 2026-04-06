@@ -34,7 +34,8 @@ public class StudentDeviceService
 
     public async Task<StudentDeviceDto> RegisterAsync(RegisterDeviceRequest request)
     {
-        var macNormalized = request.MacAddress.ToUpper().Trim();
+        var macNormalized = TryNormalizeMacAddress(request.MacAddress)
+            ?? throw new InvalidOperationException("Neteisingas MAC formatas.");
 
         var existing = await _db.StudentDevices
             .FirstOrDefaultAsync(d => d.MacAddress == macNormalized);
@@ -79,9 +80,48 @@ public class StudentDeviceService
     /// </summary>
     public async Task<StudentDevice?> FindByMacAsync(string macAddress)
     {
+        var normalized = TryNormalizeMacAddress(macAddress);
+        if (normalized == null) return null;
         return await _db.StudentDevices
             .Include(d => d.Student)
-            .FirstOrDefaultAsync(d => d.MacAddress == macAddress.ToUpper() && d.IsActive);
+            .FirstOrDefaultAsync(d => d.MacAddress == normalized && d.IsActive);
+    }
+
+    /// <summary>
+    /// Registers or updates device MAC after RADIUS Accounting-Start (Calling-Station-Id).
+    /// Links the phone’s Wi‑Fi MAC to the same student as <see cref="RadiusAccount"/>.
+    /// </summary>
+    public async Task UpsertFromRadiusAccountingAsync(Guid studentId, string rawCallingStationId)
+    {
+        var mac = TryNormalizeMacAddress(rawCallingStationId);
+        if (mac == null) return;
+
+        var existing = await _db.StudentDevices.FirstOrDefaultAsync(d => d.MacAddress == mac);
+        if (existing != null)
+        {
+            if (existing.StudentId != studentId) return;
+            existing.LastSeen = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return;
+        }
+
+        _db.StudentDevices.Add(new StudentDevice
+        {
+            StudentId = studentId,
+            MacAddress = mac,
+            DeviceName = "Hotspot (RADIUS)",
+            IsActive = true
+        });
+        await _db.SaveChangesAsync();
+    }
+
+    public static string? TryNormalizeMacAddress(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var hex = string.Concat(raw.Where(Uri.IsHexDigit));
+        if (hex.Length != 12) return null;
+        return string.Join(":",
+            Enumerable.Range(0, 6).Select(i => hex.Substring(i * 2, 2))).ToUpperInvariant();
     }
 
     public static StudentDeviceDto MapToDto(StudentDevice d) => new(

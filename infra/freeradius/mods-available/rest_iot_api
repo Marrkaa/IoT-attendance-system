@@ -1,0 +1,31 @@
+# IoT Attendance – HTTP į tavo ASP.NET API (įkelk į /etc/raddb/mods-available/rest_iot_api)
+# Pakeisk 127.0.0.1:5000 jei API klauso kitur. api_key turi sutapti su appsettings Router:ApiKey.
+# Neįdėk tuščio viršutinio „tls { }“ – FR 3.2 gali išplėsti į check_cert ir trikdyti rlm_rest.
+rest rest_iot_api {
+	pool {
+		start = 0
+		min = 0
+		max = ${thread[pool].max_servers}
+		spare = 1
+		uses = 0
+		retry_delay = 30
+		lifetime = 0
+		idle_timeout = 60
+	}
+
+	authenticate {
+		uri = "http://127.0.0.1:5000/api/radius/authenticate"
+		method = post
+		body = post
+		data = "username=%{User-Name}&password=%{User-Password}"
+		timeout = 10
+	}
+
+	accounting {
+		uri = "http://127.0.0.1:5000/api/radius/accounting"
+		method = post
+		body = post
+		data = "User-Name=%{User-Name}&Calling-Station-Id=%{Calling-Station-Id}&Acct-Status-Type=%{Acct-Status-Type}&Acct-Unique-Session-Id=%{Acct-Unique-Session-Id}&Acct-Session-Time=%{Acct-Session-Time}&Framed-IP-Address=%{Framed-IP-Address}&api_key=rutx11-station-dump-secret-key"
+		timeout = 10
+	}
+}

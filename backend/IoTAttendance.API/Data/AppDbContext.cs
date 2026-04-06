@@ -148,6 +148,7 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(h => new { h.StudentId, h.IoTNodeId, h.StartTime });
             entity.HasIndex(h => h.DeviceMac);
+            entity.HasIndex(h => h.AcctUniqueSessionId);
 
             entity.HasOne(h => h.Student)
                   .WithMany()

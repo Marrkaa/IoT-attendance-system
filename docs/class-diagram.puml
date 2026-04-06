@@ -1,0 +1,598 @@
+@startuml IoT_Attendance_MVC_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+skinparam backgroundColor #FFFFFF
+
+skinparam class {
+    BackgroundColor #FFE680
+    BorderColor #D4A800
+    HeaderBackgroundColor #FFC800
+    HeaderFontColor #000000
+    FontColor #000000
+    ArrowColor #555555
+}
+
+skinparam note {
+    BackgroundColor #FFF9C4
+    BorderColor #CCC
+}
+
+title IoT Attendance System — UML klasių diagrama (MVC)\nMartynas Dmitrovskis, KTU
+
+' =============================================
+' NAVIGATION CONTROLLERS (centras)
+' =============================================
+
+class NavigationController {
+    operations
+    ..
+    +redirectToLogin()
+    +redirectToRegister()
+    +redirectToDashboard()
+    +checkUserRole()
+    +redirectUserRole()
+}
+
+class AdminNavigationController {
+    operations
+    ..
+    +checkUserRole()
+    +redirectToUserManagement()
+    +redirectToRoomManagement()
+    +redirectToLectureManagement()
+    +redirectToScheduleManagement()
+    +redirectToRouterStatus()
+    +redirectToRadiusConfig()
+    +redirectToUserProfile()
+}
+
+class LecturerNavigationController {
+    operations
+    ..
+    +checkUserRole()
+    +redirectToAttendance()
+    +redirectToStatistics()
+    +redirectToReports()
+    +redirectToUserProfile()
+}
+
+class StudentNavigationController {
+    operations
+    ..
+    +checkUserRole()
+    +redirectToLectures()
+    +redirectToHistory()
+    +redirectToDevices()
+    +redirectToUserProfile()
+}
+
+' =============================================
+' AUTH CONTROLLERS + VIEWS
+' =============================================
+
+class LoginController {
+    operations
+    ..
+    +login()
+    +validateUser()
+    +redirectToDashboard()
+    +updateView()
+}
+
+class LoginView {
+    operations
+    ..
+    +insertInformation()
+    +redirectToRegister()
+    +redirectToForgotPassword()
+    +showErrors()
+}
+
+class RegisterController {
+    operations
+    ..
+    +register()
+    +validateData()
+    +createUser()
+    +updateView()
+    +redirectToLogin()
+}
+
+class RegisterView {
+    operations
+    ..
+    +insertInformation()
+    +redirectToLogin()
+    +showErrors()
+}
+
+class ForgotPasswordController {
+    operations
+    ..
+    +requestPasswordReset()
+    +validateEmail()
+    +sendResetEmail()
+    +updateView()
+}
+
+class ForgotPasswordView {
+    operations
+    ..
+    +insertEmail()
+    +showConfirmation()
+    +showErrors()
+}
+
+class UserProfileController {
+    operations
+    ..
+    +fetchUserInfo()
+    +updateProfile()
+    +changePassword()
+    +logout()
+    +updateView()
+}
+
+class UserProfileView {
+    operations
+    ..
+    +showUserInfo()
+    +showEditForm()
+    +showErrors()
+}
+
+' =============================================
+' ADMIN CONTROLLERS + VIEWS
+' =============================================
+
+class UserManagementController {
+    operations
+    ..
+    +fetchUsers()
+    +createUser()
+    +updateUser()
+    +deleteUser()
+    +filterByRole()
+    +searchUsers()
+    +updateView()
+}
+
+class UserManagementView {
+    operations
+    ..
+    +showUsers()
+    +showRoleFilter()
+    +showAddUserForm()
+    +showEditUserForm()
+    +showErrors()
+}
+
+class RoomManagementController {
+    operations
+    ..
+    +fetchRooms()
+    +createRoom()
+    +updateRoom()
+    +deleteRoom()
+    +assignIoTNode()
+    +updateView()
+}
+
+class RoomManagementView {
+    operations
+    ..
+    +showRooms()
+    +showAddRoomForm()
+    +showEditRoomForm()
+    +showErrors()
+}
+
+class LectureManagementController {
+    operations
+    ..
+    +fetchLectures()
+    +createLecture()
+    +updateLecture()
+    +deleteLecture()
+    +assignStudents()
+    +assignRoom()
+    +updateView()
+}
+
+class LectureManagementView {
+    operations
+    ..
+    +showLectures()
+    +showCreateLectureForm()
+    +showAssignStudentsForm()
+    +showErrors()
+}
+
+class ScheduleManagementController {
+    operations
+    ..
+    +fetchSchedules()
+    +createSchedule()
+    +updateSchedule()
+    +deleteSchedule()
+    +updateView()
+}
+
+class ScheduleManagementView {
+    operations
+    ..
+    +showWeeklyGrid()
+    +showScheduleForm()
+    +showErrors()
+}
+
+class DeviceManagementController {
+    operations
+    ..
+    +fetchAllDevices()
+    +fetchDevicesByStudent()
+    +deleteDevice()
+    +updateView()
+}
+
+note right of DeviceManagementController
+    Įrenginiai registruojami
+    automatiškai per RADIUS —
+    rankinis registravimas nebūtinas
+end note
+
+class DeviceManagementView {
+    operations
+    ..
+    +showDevices()
+    +showStudentFilter()
+    +showAutoRegisteredInfo()
+    +showErrors()
+}
+
+class RouterStatusController {
+    operations
+    ..
+    +fetchIoTNodes()
+    +fetchRouterStatus()
+    +matchMacToStudent()
+    +refreshConnectedClients()
+    +updateView()
+}
+
+class RouterStatusView {
+    operations
+    ..
+    +showNodeSelector()
+    +showConnectedClients()
+    +showSignalStrength()
+    +showErrors()
+}
+
+class RadiusManagementController {
+    operations
+    ..
+    +fetchRadiusAccounts()
+    +toggleHotspotAccess()
+    +syncRadiusUsers()
+    +updateView()
+}
+
+class RadiusManagementView {
+    operations
+    ..
+    +showAccounts()
+    +showToggleControl()
+    +showErrors()
+}
+
+' =============================================
+' LECTURER CONTROLLERS + VIEWS
+' =============================================
+
+class AttendanceController {
+    operations
+    ..
+    +fetchLectures()
+    +fetchLiveAttendance()
+    +manualMarkAttendance()
+    +editAttendanceRecord()
+    +autoRefresh()
+    +updateView()
+}
+
+class AttendanceLiveView {
+    operations
+    ..
+    +showLectureSelector()
+    +showLiveStudentList()
+    +showManualMarkForm()
+    +showErrors()
+}
+
+class StatisticsController {
+    operations
+    ..
+    +fetchAttendanceStats()
+    +fetchWeeklyData()
+    +createDiagrams()
+    +chooseTimeFrame()
+    +updateView()
+}
+
+class StatisticsView {
+    operations
+    ..
+    +showBarChart()
+    +showPieChart()
+    +showAttendanceStats()
+    +showErrors()
+}
+
+class ReportsController {
+    operations
+    ..
+    +fetchReportData()
+    +generateAttendanceSummary()
+    +generateStudentDetail()
+    +exportCsv()
+    +exportPdf()
+    +updateView()
+}
+
+class ReportsView {
+    operations
+    ..
+    +showReportTypeSelector()
+    +showDateRangePicker()
+    +showLectureFilter()
+    +showPreviewTable()
+    +showErrors()
+}
+
+' =============================================
+' STUDENT CONTROLLERS + VIEWS
+' =============================================
+
+class StudentLecturesController {
+    operations
+    ..
+    +fetchEnrolledLectures()
+    +fetchAvailableLectures()
+    +enrollLecture()
+    +unenrollLecture()
+    +updateView()
+}
+
+class StudentLecturesView {
+    operations
+    ..
+    +showEnrolledLectures()
+    +showAvailableLectures()
+    +showEnrollButton()
+    +showErrors()
+}
+
+class StudentHistoryController {
+    operations
+    ..
+    +fetchAttendanceHistory()
+    +fetchAttendanceStats()
+    +filterByLecture()
+    +updateView()
+}
+
+class StudentHistoryView {
+    operations
+    ..
+    +showAttendanceHistory()
+    +showStatistics()
+    +showFilterSelector()
+    +showErrors()
+}
+
+class StudentDeviceController {
+    operations
+    ..
+    +fetchMyDevices()
+    +deleteDevice()
+    +updateView()
+}
+
+note right of StudentDeviceController
+    Studentas negali rankiškai
+    registruoti MAC — sistema
+    priskiria automatiškai per
+    RADIUS prisijungimo metu
+end note
+
+class StudentDeviceView {
+    operations
+    ..
+    +showMyDevices()
+    +showAutoRegisteredInfo()
+    +showErrors()
+}
+
+' =============================================
+' IoT CONTROLLERS
+' =============================================
+
+class IoTNodeController {
+    operations
+    ..
+    +receiveStationDump()
+    +receiveWifiEvent()
+    +receiveRadiusAuthEvent()
+    +autoRegisterStudentDevice()
+    +processSignalData()
+    +resolveStudentByMac()
+    +determineAttendanceStatus()
+    +updateNodeLastSeen()
+}
+
+note right of IoTNodeController
+    receiveRadiusAuthEvent() gauna
+    username + MAC iš RADIUS →
+    automatiškai sukuria StudentDevice
+    įrašą duomenų bazėje
+end note
+
+class RadiusAuthController {
+    operations
+    ..
+    +handleAccessRequest()
+    +validateCredentials()
+    +extractMacAddress()
+    +sendAccessAccept()
+    +sendAccessReject()
+    +forwardAuthEventToBackend()
+    +logAuthEvent()
+}
+
+note right of RadiusAuthController
+    RUTX11 siunčia RADIUS request su:
+    Username = studento email
+    Calling-Station-Id = MAC adresas
+    Po sėkmingo auth → siunčia į
+    IoTNodeController
+end note
+
+' =============================================
+' DATABASE
+' =============================================
+
+class Database {
+    Users
+    Rooms
+    IoTNodes
+    Lectures
+    Schedules
+    Enrollments
+    AttendanceRecords
+    StudentDevices
+    RadiusAccounts
+    WifiConnectionLogs
+    Role
+    AttendanceStatus
+    NodeStatus
+    WifiEventType
+}
+
+' =============================================
+' NAVIGATION RYŠIAI
+' =============================================
+
+NavigationController --> AdminNavigationController : «use»
+NavigationController --> LecturerNavigationController : «use»
+NavigationController --> StudentNavigationController : «use»
+NavigationController --> LoginController : «use»
+NavigationController --> RegisterController : «use»
+
+AdminNavigationController --> UserManagementController : «use»
+AdminNavigationController --> RoomManagementController : «use»
+AdminNavigationController --> LectureManagementController : «use»
+AdminNavigationController --> ScheduleManagementController : «use»
+AdminNavigationController --> DeviceManagementController : «use»
+AdminNavigationController --> RouterStatusController : «use»
+AdminNavigationController --> RadiusManagementController : «use»
+
+LecturerNavigationController --> AttendanceController : «use»
+LecturerNavigationController --> StatisticsController : «use»
+LecturerNavigationController --> ReportsController : «use»
+
+StudentNavigationController --> StudentLecturesController : «use»
+StudentNavigationController --> StudentHistoryController : «use»
+StudentNavigationController --> StudentDeviceController : «use»
+
+' =============================================
+' VIEW ↔ CONTROLLER RYŠIAI (Užklausa / Atnaujina)
+' =============================================
+
+LoginView --> LoginController : Užklausa
+LoginController --> LoginView : Atnaujina
+
+RegisterView --> RegisterController : Užklausa
+RegisterController --> RegisterView : Atnaujina
+
+ForgotPasswordView --> ForgotPasswordController : Užklausa
+ForgotPasswordController --> ForgotPasswordView : Atnaujina
+
+UserProfileView --> UserProfileController : Užklausa
+UserProfileController --> UserProfileView : Atnaujina
+
+UserManagementView --> UserManagementController : Užklausa
+UserManagementController --> UserManagementView : Atnaujina
+
+RoomManagementView --> RoomManagementController : Užklausa
+RoomManagementController --> RoomManagementView : Atnaujina
+
+LectureManagementView --> LectureManagementController : Užklausa
+LectureManagementController --> LectureManagementView : Atnaujina
+
+ScheduleManagementView --> ScheduleManagementController : Užklausa
+ScheduleManagementController --> ScheduleManagementView : Atnaujina
+
+DeviceManagementView --> DeviceManagementController : Užklausa
+DeviceManagementController --> DeviceManagementView : Atnaujina
+
+RouterStatusView --> RouterStatusController : Užklausa
+RouterStatusController --> RouterStatusView : Atnaujina
+
+RadiusManagementView --> RadiusManagementController : Užklausa
+RadiusManagementController --> RadiusManagementView : Atnaujina
+
+AttendanceLiveView --> AttendanceController : Užklausa
+AttendanceController --> AttendanceLiveView : Atnaujina
+
+StatisticsView --> StatisticsController : Užklausa
+StatisticsController --> StatisticsView : Atnaujina
+
+ReportsView --> ReportsController : Užklausa
+ReportsController --> ReportsView : Atnaujina
+
+StudentLecturesView --> StudentLecturesController : Užklausa
+StudentLecturesController --> StudentLecturesView : Atnaujina
+
+StudentHistoryView --> StudentHistoryController : Užklausa
+StudentHistoryController --> StudentHistoryView : Atnaujina
+
+StudentDeviceView --> StudentDeviceController : Užklausa
+StudentDeviceController --> StudentDeviceView : Atnaujina
+
+' =============================================
+' CONTROLLERS → DATABASE
+' =============================================
+
+LoginController --> Database : «use»
+RegisterController --> Database : «use»
+UserManagementController --> Database : «use»
+RoomManagementController --> Database : «use»
+LectureManagementController --> Database : «use»
+ScheduleManagementController --> Database : «use»
+DeviceManagementController --> Database : «use»
+RouterStatusController --> Database : «use»
+RadiusManagementController --> Database : «use»
+AttendanceController --> Database : «use»
+StatisticsController --> Database : «use»
+ReportsController --> Database : «use»
+StudentLecturesController --> Database : «use»
+StudentHistoryController --> Database : «use»
+StudentDeviceController --> Database : «use»
+UserProfileController --> Database : «use»
+IoTNodeController --> Database : «use»
+RadiusAuthController --> Database : «use»
+
+' =============================================
+' IoT RYŠIAI
+' =============================================
+
+IoTNodeController --> AttendanceController : «use»
+RadiusAuthController --> IoTNodeController : forwardAuthEvent
+IoTNodeController --> DeviceManagementController : «use»
+RouterStatusController --> IoTNodeController : «use»
+RadiusAuthController --> RadiusManagementController : «use»
+
+@enduml

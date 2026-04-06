@@ -2,7 +2,7 @@ import type { User, AuthResponse } from '../types';
 import { apiClient } from './api';
 import { mockUsers } from '../mock-data/data';
 
-const USE_MOCK = true; // Switch to false when backend is running
+const USE_MOCK = false; // Switch to false when backend is running
 
 export const authService = {
   login: async (email: string, password: string): Promise<User> => {

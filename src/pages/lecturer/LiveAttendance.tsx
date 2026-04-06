@@ -1,148 +1,199 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../store/AuthContext';
-import { mockAttendance, mockLectures } from '../../mock-data/data';
-import { CheckCircle, BarChart2, Radio } from 'lucide-react';
-import { PageHeader, StatusBadge, Avatar } from '../../components';
-import { formatTime, signalStrengthPercent } from '../../utils';
-import type { AttendanceStatus } from '../../types';
+import { Radio } from 'lucide-react';
+import { PageHeader } from '../../components';
+import { attendanceService } from '../../services/attendanceService';
+import { apiClient } from '../../services/api';
+import type { Lecture, LiveAttendanceData } from '../../types';
+
+const POLL_MS = 4000;
 
 export const LiveAttendancePage = () => {
   const { user } = useAuth();
-  const lecturerLectures = mockLectures.filter(l => l.lecturerId === user?.id);
-  const [selectedLectureId, setSelectedLectureId] = useState(lecturerLectures[0]?.id || '');
-  const activeLecture = mockLectures.find(l => l.id === selectedLectureId);
-  const lectureAttendance = mockAttendance.filter(a => a.lectureId === selectedLectureId);
+  const [lectures, setLectures] = useState<Lecture[]>([]);
+  const [selectedLectureId, setSelectedLectureId] = useState('');
+  const [live, setLive] = useState<LiveAttendanceData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [overrides, setOverrides] = useState<Record<string, AttendanceStatus>>({});
+  const activeLecture = lectures.find((l) => l.id === selectedLectureId);
 
-  const handleOverride = (recordId: string, status: AttendanceStatus) => {
-    setOverrides(prev => ({ ...prev, [recordId]: status }));
-  };
+  useEffect(() => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await apiClient.get<Lecture[]>(`/lectures?lecturerId=${user.id}`);
+        if (cancelled) return;
+        setLectures(list);
+        setSelectedLectureId((prev) => {
+          if (!list.length) return '';
+          if (prev && list.some((l) => l.id === prev)) return prev;
+          return list[0].id;
+        });
+        setError(null);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Nepavyko įkelti paskaitų');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const refreshLive = useCallback(async () => {
+    if (!selectedLectureId) return;
+    try {
+      const rows = await attendanceService.getLiveAttendance(selectedLectureId);
+      setLive(rows);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Nepavyko įkelti live duomenų');
+    }
+  }, [selectedLectureId]);
+
+  useEffect(() => {
+    if (!selectedLectureId) return;
+    refreshLive();
+    const id = window.setInterval(refreshLive, POLL_MS);
+    return () => window.clearInterval(id);
+  }, [selectedLectureId, refreshLive]);
+
+  const connectedCount = live.filter((r) => r.status === 'Connected').length;
 
   return (
     <div>
       <PageHeader
-        title="Live Attendance"
-        subtitle="Real-time IoT tracking for current session"
+        title="Live attendance"
+        subtitle="Wi‑Fi station dump ir/arba RADIUS accounting (be dump matysi tik iš accounting). Atnaujinama kas kelias sekundes."
         action={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <select className="form-input" style={{ width: 'auto' }} value={selectedLectureId} onChange={e => setSelectedLectureId(e.target.value)}>
-              {lecturerLectures.map(l => (
-                <option key={l.id} value={l.id}>{l.title}</option>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <select
+              className="form-input"
+              style={{ width: 'auto', minWidth: '220px' }}
+              value={selectedLectureId}
+              onChange={(e) => setSelectedLectureId(e.target.value)}
+              disabled={!lectures.length}
+            >
+              {lectures.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.title}
+                </option>
               ))}
             </select>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--success)', animation: 'pulse 2s infinite' }}></div>
-              <span style={{ fontSize: '0.875rem', color: 'var(--success)', fontWeight: 500 }}>IoT Node Active</span>
+              <div
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--success)',
+                  animation: 'pulse 2s infinite',
+                }}
+              />
+              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                Prisijungę dabar: <strong>{connectedCount}</strong> / {live.length}
+              </span>
             </div>
           </div>
         }
       />
 
-      {/* Active session info */}
-      {activeLecture && (
-        <div className="card mb-6" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)', border: 'none' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)' }}>{activeLecture.title}</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                {activeLecture.room?.name} &bull; {formatTime(activeLecture.startTime)} - {formatTime(activeLecture.endTime)}
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button className="btn btn-primary"><CheckCircle size={14} /> Mark All Present</button>
-              <button className="btn btn-outline"><BarChart2 size={14} /> Report</button>
-            </div>
-          </div>
+      {error && (
+        <div className="badge badge-danger" style={{ display: 'block', marginBottom: '1rem', padding: '0.75rem' }}>
+          {error}
         </div>
       )}
 
-      {/* Student cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6" style={{ marginBottom: '1.5rem' }}>
-        {lectureAttendance.map(record => {
-          const currentStatus = overrides[record.id] || record.status;
-          return (
-            <div className="card" key={record.id} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <Avatar
-                firstName={record.student?.firstName || ''}
-                lastName={record.student?.lastName || ''}
-                size={48}
-                bg={currentStatus === 'Present' ? '#D1FAE5' : currentStatus === 'Late' ? '#FEF3C7' : '#FEE2E2'}
-                color={currentStatus === 'Present' ? '#065F46' : currentStatus === 'Late' ? '#92400E' : '#991B1B'}
-              />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>{record.student?.firstName} {record.student?.lastName}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{record.student?.email}</div>
-                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.75rem' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <Radio size={12} color={record.signalStrength! > -60 ? 'var(--success)' : record.signalStrength === 0 ? 'var(--danger)' : 'var(--warning)'} />
-                    {record.signalStrength !== 0 ? `${record.signalStrength} dBm` : 'No signal'}
-                  </span>
-                  <span style={{ color: 'var(--text-muted)' }}>{record.connectionDurationMinutes} min connected</span>
-                </div>
-                {/* Signal strength bar */}
-                <div style={{ marginTop: '0.5rem', height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', borderRadius: '2px',
-                    width: `${signalStrengthPercent(record.signalStrength || -90)}%`,
-                    background: record.signalStrength! > -60 ? 'var(--success)' : record.signalStrength === 0 ? 'var(--danger)' : 'var(--warning)',
-                    transition: 'width 0.5s ease'
-                  }}></div>
-                </div>
-              </div>
-              <div>
-                <StatusBadge status={currentStatus} />
-              </div>
-            </div>
-          );
-        })}
+      {loading && <p style={{ color: 'var(--text-secondary)' }}>Kraunama…</p>}
+
+      {!loading && !lectures.length && (
+        <div className="card" style={{ padding: '1rem' }}>
+          <p style={{ margin: 0 }}>Nėra paskaitų priskirtų šiam dėstytojui (arba API negrąžina sąrašo).</p>
+        </div>
+      )}
+
+      {activeLecture && (
+        <div
+          className="card mb-6"
+          style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)', border: 'none' }}
+        >
+          <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--primary)', margin: '0 0 0.25rem' }}>
+            {activeLecture.title}
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
+            {activeLecture.room?.name ?? 'Auditorija nepriskirta'} — <strong>Connected</strong> iš RADIUS: FreeRADIUS turi siųsti
+            accounting į <code>/api/radius/accounting</code> (Start/Interim/Stop). Station dump – papildomai signalui.
+          </p>
+        </div>
+      )}
+
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <strong>Disconnected?</strong> Įjunk RADIUS <em>accounting</em> į API (su <code>X-Api-Key</code>); Start su{' '}
+          <code>Calling-Station-Id</code> sukuria sesiją. Arba rankiniu būdu MAC + station dump. Studentas turi būti įstojęs į
+          paskaitą.
+        </p>
       </div>
 
-      {/* Full table */}
-      <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">All Connections</h3>
-        </div>
-        <div className="table-container">
-          <table className="table">
-            <thead>
+      <div className="table-container card">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Studentas</th>
+              <th>Būsena</th>
+              <th>MAC</th>
+              <th>Signalas</th>
+              <th>Nuo / trukmė</th>
+            </tr>
+          </thead>
+          <tbody>
+            {live.length === 0 && selectedLectureId && (
               <tr>
-                <th>Student</th>
-                <th>Status</th>
-                <th>Detected At</th>
-                <th>Signal</th>
-                <th>Duration</th>
-                <th>Override</th>
+                <td colSpan={5} style={{ color: 'var(--text-muted)', padding: '1rem' }}>
+                  Nėra įstojusių studentų šiai paskaitai arba dar nėra jokių ryšių įrašų.
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {lectureAttendance.map(record => {
-                const currentStatus = overrides[record.id] || record.status;
-                return (
-                  <tr key={record.id}>
-                    <td style={{ fontWeight: 500 }}>{record.student?.firstName} {record.student?.lastName}</td>
-                    <td><StatusBadge status={currentStatus} /></td>
-                    <td>{new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
-                    <td>{record.signalStrength !== 0 ? `${record.signalStrength} dBm` : '—'}</td>
-                    <td>{record.connectionDurationMinutes} min</td>
-                    <td>
-                      <select
-                        className="form-input"
-                        style={{ padding: '0.25rem 0.5rem', width: 'auto' }}
-                        value={currentStatus}
-                        onChange={e => handleOverride(record.id, e.target.value as AttendanceStatus)}
-                      >
-                        <option value="Present">Present</option>
-                        <option value="Late">Late</option>
-                        <option value="Absent">Absent</option>
-                      </select>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+            )}
+            {live.map((row) => (
+              <tr key={row.studentId}>
+                <td style={{ fontWeight: 500 }}>{row.studentName}</td>
+                <td>
+                  <span
+                    className={row.status === 'Connected' ? 'badge badge-success' : 'badge'}
+                    style={{
+                      background: row.status === 'Connected' ? undefined : 'var(--border)',
+                      color: row.status === 'Connected' ? undefined : 'var(--text-secondary)',
+                    }}
+                  >
+                    {row.status === 'Connected' ? 'Prisijungęs' : 'Ne prisijungęs'}
+                  </span>
+                </td>
+                <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{row.deviceMac ?? '—'}</td>
+                <td>
+                  {row.signalStrengthDbm != null ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <Radio size={14} />
+                      {row.signalStrengthDbm} dBm
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+                <td>
+                  {row.connectedSince
+                    ? `${new Date(row.connectedSince).toLocaleTimeString()} · ~${Math.round(row.connectionMinutes ?? 0)} min`
+                    : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

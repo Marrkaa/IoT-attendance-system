@@ -46,6 +46,7 @@ builder.Services.AddScoped<SignalProcessingService>();
 builder.Services.AddScoped<RadiusService>();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddHostedService<SessionCleanupService>();
 
 // Controllers + JSON
 builder.Services.AddControllers()
@@ -81,7 +82,10 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+if (!app.Configuration.GetValue("DisableHttpsRedirection", false))
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
@@ -92,6 +96,18 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.EnsureCreatedAsync();
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE hotspot_sessions ADD COLUMN IF NOT EXISTS acct_unique_session_id character varying(128);");
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE hotspot_sessions ADD COLUMN IF NOT EXISTS last_accounting_at timestamp with time zone;");
+    }
+    catch
+    {
+        // Senesnėse DB be hotspot_sessions – ignoruoti
+    }
 
     if (!db.Users.Any())
     {
@@ -153,6 +169,23 @@ using (var scope = app.Services.CreateScope())
             RadiusPasswordHash = BCrypt.Net.BCrypt.HashPassword("password")
         });
 
+        await db.SaveChangesAsync();
+
+        var lecture = new IoTAttendance.API.Models.Lecture
+        {
+            Title = "IoT lankomumas (demo)",
+            Description = "Demo paskaita live attendance ekranui",
+            LecturerId = lecturer.Id,
+            RoomId = room.Id
+        };
+        db.Lectures.Add(lecture);
+        await db.SaveChangesAsync();
+
+        db.Enrollments.Add(new IoTAttendance.API.Models.Enrollment
+        {
+            StudentId = student.Id,
+            LectureId = lecture.Id
+        });
         await db.SaveChangesAsync();
     }
 }
