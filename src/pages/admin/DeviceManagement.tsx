@@ -3,23 +3,24 @@ import { Smartphone } from 'lucide-react';
 import { PageHeader, Modal } from '../../components';
 import { DeviceManagementTable } from '../../components/iot/DeviceManagementTable';
 import { deviceService } from '../../services/deviceService';
-import { mockUsers } from '../../mock-data/data';
-import type { StudentDevice } from '../../types';
+import { userService } from '../../services/userService';
+import type { StudentDevice, User } from '../../types';
 
 export function DeviceManagementPage() {
   const [devices, setDevices] = useState<StudentDevice[]>([]);
+  const [students, setStudents] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ studentId: '', macAddress: '', deviceName: '' });
 
-  const students = mockUsers.filter((u) => u.role === 'Student');
-
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      setDevices(await deviceService.getAll());
+      const [devList, studList] = await Promise.all([deviceService.getAll(), userService.getAll('Student')]);
+      setDevices(devList);
+      setStudents(studList);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
@@ -28,7 +29,7 @@ export function DeviceManagementPage() {
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   const handleAdd = async () => {

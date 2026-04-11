@@ -4,7 +4,7 @@ public record AttendanceRecordDto(
     Guid Id,
     Guid LectureId,
     Guid StudentId,
-    Guid ScheduleId,
+    Guid? ScheduleId,
     string Date,
     string Status,
     DateTime? CheckInTime,

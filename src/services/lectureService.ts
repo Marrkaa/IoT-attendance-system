@@ -1,87 +1,60 @@
+/**
+ * Paskaitos — /api/lectures + susiję įstojimai per getEnrollments.
+ * Po GET uždedame startTime/endTime/dayOfWeek iš pirmo tvarkaraščio slotų,
+ * kad senesnės lentelės (formatTime) veiktų be keitimų visur.
+ */
 import type { Lecture, Enrollment } from '../types';
 import { apiClient } from './api';
-import { mockLectures, mockEnrollments, mockUsers } from '../mock-data/data';
 
-const USE_MOCK = true;
+function applyScheduleDefaults(lec: Lecture): Lecture {
+  const s = lec.schedules?.[0];
+  return {
+    ...lec,
+    dayOfWeek: s?.dayOfWeek ?? lec.dayOfWeek ?? 0,
+    startTime: s?.startTime ?? lec.startTime ?? '09:00',
+    endTime: s?.endTime ?? lec.endTime ?? '10:00',
+  };
+}
 
 export const lectureService = {
   getAll: async (lecturerId?: string): Promise<Lecture[]> => {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      if (lecturerId) return mockLectures.filter(l => l.lecturerId === lecturerId);
-      return [...mockLectures];
-    }
-
     const params = lecturerId ? `?lecturerId=${lecturerId}` : '';
-    return apiClient.get<Lecture[]>(`/lectures${params}`);
+    const list = await apiClient.get<Lecture[]>(`/lectures${params}`);
+    return list.map(applyScheduleDefaults);
   },
 
   getById: async (id: string): Promise<Lecture> => {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const lecture = mockLectures.find(l => l.id === id);
-      if (!lecture) throw new Error('Paskaita nerasta');
-      return lecture;
-    }
-
-    return apiClient.get<Lecture>(`/lectures/${id}`);
+    const lec = await apiClient.get<Lecture>(`/lectures/${id}`);
+    return applyScheduleDefaults(lec);
   },
 
   getByStudent: async (studentId: string): Promise<Lecture[]> => {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const enrolledLectureIds = mockEnrollments
-        .filter(e => e.studentId === studentId)
-        .map(e => e.lectureId);
-      return mockLectures.filter(l => enrolledLectureIds.includes(l.id));
-    }
-
     const enrollments = await apiClient.get<Enrollment[]>(`/enrollments/student/${studentId}`);
-    return enrollments.map(e => e.lecture!).filter(Boolean);
+    return enrollments
+      .map((e) => (e.lecture ? applyScheduleDefaults(e.lecture) : null))
+      .filter((x): x is Lecture => x != null);
   },
 
   getEnrollments: async (lectureId: string): Promise<Enrollment[]> => {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return mockEnrollments
-        .filter(e => e.lectureId === lectureId)
-        .map(e => ({ ...e, student: mockUsers.find(u => u.id === e.studentId) }));
-    }
-
     return apiClient.get<Enrollment[]>(`/enrollments/lecture/${lectureId}`);
   },
 
-  create: async (data: { title: string; description?: string; lecturerId: string; roomId: string }): Promise<Lecture> => {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const newLecture: Lecture = {
-        ...data,
-        id: `l${Date.now()}`,
-        dayOfWeek: 0,
-        startTime: '08:00',
-        endTime: '09:30',
-      };
-      mockLectures.push(newLecture);
-      return newLecture;
-    }
-
-    return apiClient.post<Lecture>('/lectures', data);
+  create: async (data: {
+    title: string;
+    description?: string;
+    lecturerId: string;
+    roomId: string;
+  }): Promise<Lecture> => {
+    const lec = await apiClient.post<Lecture>('/lectures', data);
+    return applyScheduleDefaults(lec);
   },
 
   update: async (id: string, data: Partial<Lecture>): Promise<Lecture> => {
-    if (USE_MOCK) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const index = mockLectures.findIndex(l => l.id === id);
-      if (index === -1) throw new Error('Paskaita nerasta');
-      mockLectures[index] = { ...mockLectures[index], ...data };
-      return mockLectures[index];
-    }
-
-    return apiClient.put<Lecture>(`/lectures/${id}`, data);
+    const lec = await apiClient.put<Lecture>(`/lectures/${id}`, data);
+    return applyScheduleDefaults(lec);
   },
 
   delete: async (id: string): Promise<void> => {
-    if (USE_MOCK) return;
     await apiClient.delete(`/lectures/${id}`);
   },
 };

@@ -119,6 +119,21 @@ public class RadiusController : ControllerBase
         });
     }
 
+    [HttpPost("account/{userId}")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<IActionResult> CreateAccount(Guid userId, [FromBody] CreateRadiusAccountRequest request)
+    {
+        var account = await _radiusService.CreateAccountAsync(userId, request.Username, request.Password);
+        return Created($"api/radius/account/{userId}", new
+        {
+            account.Id,
+            account.UserId,
+            account.RadiusUsername,
+            account.IsEnabled,
+            account.CreatedAt
+        });
+    }
+
     [HttpPut("account/{userId}/toggle")]
     [Authorize(Roles = "Administrator")]
     public async Task<IActionResult> ToggleAccount(Guid userId, [FromQuery] bool enabled)
@@ -127,3 +142,5 @@ public class RadiusController : ControllerBase
         return NoContent();
     }
 }
+
+public record CreateRadiusAccountRequest(string Username, string Password);

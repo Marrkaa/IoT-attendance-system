@@ -6,3 +6,5 @@ export { roomService } from './roomService';
 export { deviceService } from './deviceService';
 export { iotNodeService } from './iotNodeService';
 export { radiusService } from './radiusService';
+export { scheduleService } from './scheduleService';
+export { enrollmentService } from './enrollmentService';

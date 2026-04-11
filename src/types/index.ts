@@ -43,10 +43,10 @@ export interface Lecture {
   description?: string;
   lecturerId: string;
   roomId: string;
-  // Backward-compatible fields used by current mock pages.
-  startTime: string;
-  endTime: string;
-  dayOfWeek: number; // 0=Monday ... 6=Sunday
+  /** Jei API grąžina tik schedules — užpildoma iš pirmo sloto rodymui lentelėse */
+  startTime?: string;
+  endTime?: string;
+  dayOfWeek?: number; // 0=Monday ... 6=Sunday (sutampa su backend Schedule)
   lecturer?: User;
   room?: Room;
   enrolledCount?: number;

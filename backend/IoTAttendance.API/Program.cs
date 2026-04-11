@@ -103,10 +103,16 @@ using (var scope = app.Services.CreateScope())
             "ALTER TABLE hotspot_sessions ADD COLUMN IF NOT EXISTS acct_unique_session_id character varying(128);");
         await db.Database.ExecuteSqlRawAsync(
             "ALTER TABLE hotspot_sessions ADD COLUMN IF NOT EXISTS last_accounting_at timestamp with time zone;");
+        await db.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE attendance_records ALTER COLUMN schedule_id DROP NOT NULL;");
+        await db.Database.ExecuteSqlRawAsync(
+            "DROP INDEX IF EXISTS \"IX_attendance_records_StudentId_ScheduleId_Date\";");
+        await db.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX IF NOT EXISTS "IX_attendance_records_StudentId_LectureId_Date" ON attendance_records (student_id, lecture_id, date);""");
     }
     catch
     {
-        // Older DBs without hotspot_sessions — ignore migration errors
+        // Older DBs — ignore migration errors
     }
 
     if (!db.Users.Any())

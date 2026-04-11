@@ -125,32 +125,32 @@
     {
       "code": "NU1301",
       "level": "Error",
-      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:43463/' failed with status code '403'.\""
+      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:39615/' failed with status code '403'.\""
     },
     {
       "code": "NU1301",
       "level": "Error",
-      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:43463/' failed with status code '403'.\""
+      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:39615/' failed with status code '403'.\""
     },
     {
       "code": "NU1301",
       "level": "Error",
-      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:43463/' failed with status code '403'.\""
+      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:39615/' failed with status code '403'.\""
     },
     {
       "code": "NU1301",
       "level": "Error",
-      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:43463/' failed with status code '403'.\""
+      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:39615/' failed with status code '403'.\""
     },
     {
       "code": "NU1301",
       "level": "Error",
-      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:43463/' failed with status code '403'.\""
+      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:39615/' failed with status code '403'.\""
     },
     {
       "code": "NU1301",
       "level": "Error",
-      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:43463/' failed with status code '403'.\""
+      "message": "Unable to load the service index for source https://api.nuget.org/v3/index.json.\n  The proxy tunnel request to proxy 'http://127.0.0.1:39615/' failed with status code '403'.\""
     },
     {
       "code": "NU1900",

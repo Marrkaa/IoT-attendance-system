@@ -6,6 +6,17 @@ export const cn = (...inputs: ClassValue[]) => clsx(inputs);
 export const formatTime = (iso: string): string =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+/** Tvarkaraščio laikas API: dažnai \"HH:mm\" — ne visada pilnas ISO. */
+export const formatClock = (raw?: string): string => {
+  if (!raw) return '—';
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(raw.trim())) {
+    const p = raw.trim().split(':');
+    return `${p[0].padStart(2, '0')}:${p[1].padStart(2, '0')}`;
+  }
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? raw : formatTime(raw);
+};
+
 export const formatDate = (iso: string): string =>
   new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 

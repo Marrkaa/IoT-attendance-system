@@ -1,6 +1,14 @@
-import { Calendar, Clock, MapPin } from 'lucide-react';
-import { PageHeader } from '../../components';
-import { mockSchedules } from '../../mock-data/data';
+/**
+ * Savaitės tinklelis: scheduleService.getAll() + lectureService.getAll() sąjunga pagal lectureId
+ * (API schedule DTO neturi įdėtos Lecture, kad išvengtų ciklų — todėl pavadinimai imami iš atskiros užklausos).
+ * Galima pridėti slotą modale arba pašalinti slotą iš kortelės.
+ */
+import { useCallback, useEffect, useState } from 'react';
+import { Calendar, Clock, MapPin, Trash2 } from 'lucide-react';
+import { PageHeader, Modal } from '../../components';
+import { scheduleService } from '../../services/scheduleService';
+import { lectureService } from '../../services/lectureService';
+import type { Schedule, Lecture } from '../../types';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const hours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
@@ -14,78 +22,232 @@ const lectureColors = [
 ];
 
 export const SchedulesPage = () => {
-  const getScheduleForSlot = (dayIndex: number, hour: string) => {
-    return mockSchedules.filter(s => {
-      const startHour = parseInt(s.startTime.split(':')[0]);
-      const slotHour = parseInt(hour.split(':')[0]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [lectures, setLectures] = useState<Lecture[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ lectureId: '', dayOfWeek: 0, startTime: '10:00', endTime: '11:30' });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [sch, lec] = await Promise.all([scheduleService.getAll(), lectureService.getAll()]);
+      setSchedules(sch);
+      setLectures(lec);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load schedules');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const lectureById = (id: string) => lectures.find((l) => l.id === id);
+
+  const getScheduleForSlot = (dayIndex: number, hour: string) =>
+    schedules.filter((s) => {
+      const startHour = parseInt(s.startTime.split(':')[0], 10);
+      const slotHour = parseInt(hour.split(':')[0], 10);
       return s.dayOfWeek === dayIndex && startHour === slotHour;
     });
-  };
 
   const getLectureColorIndex = (lectureId: string): number => {
-    const ids = [...new Set(mockSchedules.map(s => s.lectureId))];
-    return ids.indexOf(lectureId) % lectureColors.length;
+    const ids = [...new Set(schedules.map((s) => s.lectureId))];
+    return Math.max(0, ids.indexOf(lectureId)) % lectureColors.length;
+  };
+
+  const addSchedule = async () => {
+    if (!form.lectureId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await scheduleService.create({
+        lectureId: form.lectureId,
+        dayOfWeek: form.dayOfWeek,
+        startTime: form.startTime,
+        endTime: form.endTime,
+      });
+      setModalOpen(false);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create schedule');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeSchedule = async (id: string) => {
+    if (!confirm('Remove this time slot?')) return;
+    setError(null);
+    try {
+      await scheduleService.delete(id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed');
+    }
   };
 
   return (
     <div>
       <PageHeader
         title="Schedule Management"
-        subtitle="Weekly timetable overview"
-        action={<button className="btn btn-primary"><Calendar size={16} /> Add Schedule Entry</button>}
+        subtitle="Weekly slots from the database. Create lecture first, then add or adjust slots here."
+        action={
+          <button type="button" className="btn btn-primary" onClick={() => setModalOpen(true)}>
+            <Calendar size={16} /> Add schedule entry
+          </button>
+        }
       />
 
-      <div className="card" style={{ overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '80px repeat(5, 1fr)', gap: '1px', background: 'var(--border)', minWidth: '700px' }}>
-          {/* Header row */}
-          <div style={{ background: 'var(--bg-card)', padding: '0.75rem', fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-muted)' }}></div>
-          {days.map(day => (
-            <div key={day} style={{ background: 'var(--bg-card)', padding: '0.75rem', fontWeight: 600, fontSize: '0.875rem', textAlign: 'center', color: 'var(--text-primary)' }}>
-              {day}
-            </div>
-          ))}
-
-          {/* Time slots */}
-          {hours.map(hour => (
-            <div key={hour} style={{ display: 'contents' }}>
-              <div style={{ background: 'var(--bg-card)', padding: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'flex-start' }}>
-                {hour}
-              </div>
-              {days.map((day, dayIndex) => {
-                const schedules = getScheduleForSlot(dayIndex, hour);
-                return (
-                  <div key={`${day}-${hour}`} style={{ background: 'var(--bg-card)', padding: '0.5rem', minHeight: '60px' }}>
-                    {schedules.map(schedule => {
-                      const colorIdx = getLectureColorIndex(schedule.lectureId);
-                      const colors = lectureColors[colorIdx];
-                      return (
-                        <div key={schedule.id} style={{
-                          background: colors.bg,
-                          borderLeft: `3px solid ${colors.border}`,
-                          borderRadius: 'var(--radius-sm)',
-                          padding: '0.5rem',
-                          fontSize: '0.75rem',
-                          marginBottom: '0.25rem',
-                        }}>
-                          <div style={{ fontWeight: 600, color: colors.text, marginBottom: '0.25rem' }}>
-                            {schedule.lecture?.title}
-                          </div>
-                          <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                            <MapPin size={10} /> {schedule.lecture?.room?.name}
-                          </div>
-                          <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.125rem' }}>
-                            <Clock size={10} /> {schedule.startTime} - {schedule.endTime}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+      {error && (
+        <div className="badge badge-danger" style={{ display: 'block', marginBottom: '1rem', padding: '0.75rem' }}>
+          {error}
         </div>
-      </div>
+      )}
+
+      {loading ? (
+        <p style={{ color: 'var(--text-secondary)' }}>Loading…</p>
+      ) : (
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '80px repeat(5, 1fr)',
+              gap: '1px',
+              background: 'var(--border)',
+              minWidth: '700px',
+            }}
+          >
+            <div style={{ background: 'var(--bg-card)', padding: '0.75rem', fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-muted)' }} />
+            {days.map((day) => (
+              <div
+                key={day}
+                style={{
+                  background: 'var(--bg-card)',
+                  padding: '0.75rem',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  textAlign: 'center',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {day}
+              </div>
+            ))}
+
+            {hours.map((hour) => (
+              <div key={hour} style={{ display: 'contents' }}>
+                <div
+                  style={{
+                    background: 'var(--bg-card)',
+                    padding: '0.75rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  {hour}
+                </div>
+                {days.map((day, dayIndex) => {
+                  const slotSchedules = getScheduleForSlot(dayIndex, hour);
+                  return (
+                    <div key={`${day}-${hour}`} style={{ background: 'var(--bg-card)', padding: '0.5rem', minHeight: '60px' }}>
+                      {slotSchedules.map((schedule) => {
+                        const lec = lectureById(schedule.lectureId);
+                        const colorIdx = getLectureColorIndex(schedule.lectureId);
+                        const colors = lectureColors[colorIdx];
+                        return (
+                          <div
+                            key={schedule.id}
+                            style={{
+                              background: colors.bg,
+                              borderLeft: `3px solid ${colors.border}`,
+                              borderRadius: 'var(--radius-sm)',
+                              padding: '0.5rem',
+                              fontSize: '0.75rem',
+                              marginBottom: '0.25rem',
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.25rem' }}>
+                              <div style={{ fontWeight: 600, color: colors.text, marginBottom: '0.25rem' }}>{lec?.title ?? 'Lecture'}</div>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ padding: '0.1rem 0.25rem', fontSize: '0.65rem', lineHeight: 1 }}
+                                title="Remove slot"
+                                onClick={() => void removeSchedule(schedule.id)}
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            </div>
+                            <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <MapPin size={10} /> {lec?.room?.name ?? '—'}
+                            </div>
+                            <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.125rem' }}>
+                              <Clock size={10} /> {schedule.startTime} – {schedule.endTime}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Modal isOpen={modalOpen} onClose={() => !saving && setModalOpen(false)} title="Add schedule entry">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Lecture</label>
+            <select className="form-input" value={form.lectureId} onChange={(e) => setForm((f) => ({ ...f, lectureId: e.target.value }))}>
+              <option value="">Select…</option>
+              {lectures.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Day (0 = Monday)</label>
+            <select className="form-input" value={form.dayOfWeek} onChange={(e) => setForm((f) => ({ ...f, dayOfWeek: parseInt(e.target.value, 10) }))}>
+              {days.map((d, i) => (
+                <option key={d} value={i}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Start</label>
+              <input type="time" className="form-input" value={form.startTime} onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">End</label>
+              <input type="time" className="form-input" value={form.endTime} onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn-outline" onClick={() => setModalOpen(false)} disabled={saving}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => void addSchedule()} disabled={saving || !form.lectureId}>
+              {saving ? 'Saving…' : 'Add'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

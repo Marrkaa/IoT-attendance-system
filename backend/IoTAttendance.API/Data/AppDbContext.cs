@@ -77,10 +77,10 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // AttendanceRecord - unique student+schedule+date
+        // AttendanceRecord - unique student+lecture+date
         modelBuilder.Entity<AttendanceRecord>(entity =>
         {
-            entity.HasIndex(a => new { a.StudentId, a.ScheduleId, a.Date }).IsUnique();
+            entity.HasIndex(a => new { a.StudentId, a.LectureId, a.Date }).IsUnique();
             entity.Property(a => a.Status).HasConversion<string>();
 
             entity.HasOne(a => a.Student)
@@ -96,6 +96,7 @@ public class AppDbContext : DbContext
             entity.HasOne(a => a.Schedule)
                   .WithMany()
                   .HasForeignKey(a => a.ScheduleId)
+                  .IsRequired(false)
                   .OnDelete(DeleteBehavior.Restrict);
         });
 

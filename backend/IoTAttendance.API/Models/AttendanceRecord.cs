@@ -25,9 +25,8 @@ public class AttendanceRecord
     [Column("student_id")]
     public Guid StudentId { get; set; }
 
-    [Required]
     [Column("schedule_id")]
-    public Guid ScheduleId { get; set; }
+    public Guid? ScheduleId { get; set; }
 
     [Column("date")]
     public DateOnly Date { get; set; }
@@ -74,5 +73,5 @@ public class AttendanceRecord
     public User Student { get; set; } = null!;
 
     [ForeignKey("ScheduleId")]
-    public Schedule Schedule { get; set; } = null!;
+    public Schedule? Schedule { get; set; }
 }

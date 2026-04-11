@@ -50,6 +50,20 @@ public class UserService
         };
 
         _db.Users.Add(user);
+
+        // Auto-create a RADIUS account for Students so they can authenticate
+        // on the captive portal with the same email/password.
+        if (user.Role == UserRole.Student)
+        {
+            _db.RadiusAccounts.Add(new RadiusAccount
+            {
+                UserId = user.Id,
+                RadiusUsername = user.Email,
+                RadiusPasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                IsEnabled = true
+            });
+        }
+
         await _db.SaveChangesAsync();
         return AuthService.MapToDto(user);
     }
@@ -74,6 +88,11 @@ public class UserService
     {
         var user = await _db.Users.FindAsync(id)
             ?? throw new KeyNotFoundException("User not found.");
+
+        var radiusAccount = await _db.RadiusAccounts.FirstOrDefaultAsync(r => r.UserId == id);
+        if (radiusAccount != null)
+            _db.RadiusAccounts.Remove(radiusAccount);
+
         _db.Users.Remove(user);
         await _db.SaveChangesAsync();
     }

@@ -1,82 +1,99 @@
-import { Calendar, Clock } from 'lucide-react';
-import { useState } from 'react';
-import type { AttendanceStatus } from '../../types';
+import { useCallback, useEffect, useState } from 'react';
+import { Calendar } from 'lucide-react';
+import { useAuth } from '../../store/AuthContext';
 import { PageHeader, StatusBadge } from '../../components';
-import { formatDate } from '../../utils';
-
-interface HistoryEntry {
-  id: string;
-  date: string;
-  lecture: string;
-  room: string;
-  time: string;
-  instructor: string;
-  status: AttendanceStatus;
-  signal: number;
-}
-
-const mockHistory: HistoryEntry[] = [
-  { id: '1', date: '2026-03-28', lecture: 'Introduction to IoT', room: 'Room A-101', time: '10:00 - 11:30', instructor: 'Dr. Jane Doe', status: 'Present', signal: -42 },
-  { id: '2', date: '2026-03-28', lecture: 'Advanced Networking', room: 'Lab B-204', time: '13:00 - 14:30', instructor: 'Dr. Jane Doe', status: 'Present', signal: -55 },
-  { id: '3', date: '2026-03-27', lecture: 'Introduction to IoT', room: 'Room A-101', time: '10:00 - 11:30', instructor: 'Dr. Jane Doe', status: 'Late', signal: -72 },
-  { id: '4', date: '2026-03-26', lecture: 'Advanced Networking', room: 'Lab B-204', time: '13:00 - 14:30', instructor: 'Dr. Jane Doe', status: 'Present', signal: -48 },
-  { id: '5', date: '2026-03-25', lecture: 'Introduction to IoT', room: 'Room A-101', time: '10:00 - 11:30', instructor: 'Dr. Jane Doe', status: 'Present', signal: -39 },
-  { id: '6', date: '2026-03-24', lecture: 'Embedded Systems', room: 'Auditorium C-001', time: '09:00 - 10:30', instructor: 'Prof. Mark Wilson', status: 'Absent', signal: 0 },
-  { id: '7', date: '2026-03-21', lecture: 'Introduction to IoT', room: 'Room A-101', time: '10:00 - 11:30', instructor: 'Dr. Jane Doe', status: 'Present', signal: -50 },
-  { id: '8', date: '2026-03-20', lecture: 'Advanced Networking', room: 'Lab B-204', time: '13:00 - 14:30', instructor: 'Dr. Jane Doe', status: 'Present', signal: -44 },
-  { id: '9', date: '2026-03-19', lecture: 'Embedded Systems', room: 'Auditorium C-001', time: '09:00 - 10:30', instructor: 'Prof. Mark Wilson', status: 'Present', signal: -46 },
-  { id: '10', date: '2026-03-18', lecture: 'Introduction to IoT', room: 'Room A-101', time: '10:00 - 11:30', instructor: 'Dr. Jane Doe', status: 'Late', signal: -68 },
-];
+import { attendanceService } from '../../services/attendanceService';
+import type { AttendanceRecord, AttendanceStats } from '../../types';
 
 export const HistoryPage = () => {
-  const [filter, setFilter] = useState<'All' | AttendanceStatus>('All');
+  const { user } = useAuth();
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [stats, setStats] = useState<AttendanceStats | null>(null);
+  const [filter, setFilter] = useState<'All' | 'Present' | 'Late' | 'Absent'>('All');
+  const [loading, setLoading] = useState(true);
 
-  const filtered = filter === 'All' ? mockHistory : mockHistory.filter(h => h.status === filter);
+  const load = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      const [recs, st] = await Promise.all([
+        attendanceService.getByStudent(user.id),
+        attendanceService.getStudentStats(user.id),
+      ]);
+      setRecords(recs);
+      setStats(st);
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  }, [user?.id]);
 
-  const presentCount = mockHistory.filter(h => h.status === 'Present').length;
-  const totalCount = mockHistory.length;
-  const rate = Math.round(((presentCount + mockHistory.filter(h => h.status === 'Late').length) / totalCount) * 100);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const filtered = filter === 'All' ? records : records.filter((r) => r.status === filter);
+  const rate = stats?.attendancePercentage ?? 0;
+
+  const lectureBreakdown = records.reduce<Record<string, { name: string; present: number; late: number; absent: number }>>((acc, r) => {
+    const name = r.lecture?.title ?? 'Unknown';
+    if (!acc[name]) acc[name] = { name, present: 0, late: 0, absent: 0 };
+    if (r.status === 'Present') acc[name].present++;
+    else if (r.status === 'Late') acc[name].late++;
+    else acc[name].absent++;
+    return acc;
+  }, {});
+
+  const bestCourse = Object.values(lectureBreakdown).reduce<{ name: string; rate: number } | null>((best, c) => {
+    const total = c.present + c.late + c.absent;
+    const cRate = total > 0 ? Math.round(((c.present + c.late) / total) * 100) : 0;
+    if (!best || cRate > best.rate) return { name: c.name, rate: cRate };
+    return best;
+  }, null);
 
   return (
     <div>
       <PageHeader
         title="Attendance History"
         subtitle="Your complete attendance record"
-        action={<button className="btn btn-outline"><Calendar size={16} /> Export</button>}
+        action={
+          <button type="button" className="btn btn-outline">
+            <Calendar size={16} /> Export
+          </button>
+        }
       />
 
-      {/* Monthly summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" style={{ marginBottom: '1.5rem' }}>
         <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>March 2026</p>
-          <h3 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', margin: '0.25rem 0' }}>{rate}%</h3>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Attendance rate</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Attendance Rate</p>
+          <h3 style={{ fontSize: '1.75rem', fontWeight: 700, color: rate >= 80 ? 'var(--success)' : rate >= 60 ? 'var(--warning)' : 'var(--danger)', margin: '0.25rem 0' }}>
+            {rate}%
+          </h3>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Sessions</p>
-          <h3 style={{ fontSize: '1.75rem', fontWeight: 700, margin: '0.25rem 0' }}>{totalCount}</h3>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>This month</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Records</p>
+          <h3 style={{ fontSize: '1.75rem', fontWeight: 700, margin: '0.25rem 0' }}>{records.length}</h3>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Best Course</p>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--success)', margin: '0.25rem 0' }}>Intro to IoT</h3>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>92% rate</p>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--success)', margin: '0.25rem 0' }}>
+            {bestCourse ? bestCourse.name : '—'}
+          </h3>
+          {bestCourse && <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{bestCourse.rate}% rate</p>}
         </div>
         <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Streak</p>
-          <h3 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--success)', margin: '0.25rem 0' }}>5</h3>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Days present in a row</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Lectures</p>
+          <h3 style={{ fontSize: '1.75rem', fontWeight: 700, margin: '0.25rem 0' }}>{Object.keys(lectureBreakdown).length}</h3>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>With records</p>
         </div>
       </div>
 
-      {/* Filter + Table */}
       <div className="card">
         <div className="card-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
           <h3 className="card-title">Detailed Records</h3>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            {(['All', 'Present', 'Late', 'Absent'] as const).map(f => (
+            {(['All', 'Present', 'Late', 'Absent'] as const).map((f) => (
               <button
                 key={f}
+                type="button"
                 className={`btn ${filter === f ? 'btn-primary' : 'btn-outline'}`}
                 style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem' }}
                 onClick={() => setFilter(f)}
@@ -86,36 +103,49 @@ export const HistoryPage = () => {
             ))}
           </div>
         </div>
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Lecture</th>
-                <th>Room</th>
-                <th>Time</th>
-                <th>Signal</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(h => (
-                <tr key={h.id}>
-                  <td style={{ fontWeight: 500 }}>{formatDate(h.date)}</td>
-                  <td>{h.lecture}</td>
-                  <td>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem' }}>
-                      <Clock size={14} color="var(--text-muted)" /> {h.room}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: '0.875rem' }}>{h.time}</td>
-                  <td>{h.signal !== 0 ? `${h.signal} dBm` : '—'}</td>
-                  <td><StatusBadge status={h.status} /></td>
+
+        {loading ? (
+          <p style={{ padding: '1rem', color: 'var(--text-secondary)' }}>Loading…</p>
+        ) : filtered.length === 0 ? (
+          <p style={{ padding: '1rem', color: 'var(--text-muted)' }}>No records found.</p>
+        ) : (
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Lecture</th>
+                  <th>Check-in</th>
+                  <th>Duration</th>
+                  <th>Signal</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr key={r.id}>
+                    <td style={{ fontWeight: 500 }}>{r.date}</td>
+                    <td>{r.lecture?.title ?? '—'}</td>
+                    <td style={{ fontSize: '0.875rem' }}>
+                      {r.checkInTime ? new Date(r.checkInTime).toLocaleTimeString('en-US') : '—'}
+                    </td>
+                    <td style={{ fontSize: '0.875rem' }}>
+                      {r.connectionDurationMinutes != null ? `${r.connectionDurationMinutes.toFixed(1)} min` : '—'}
+                    </td>
+                    <td style={{ fontSize: '0.875rem' }}>
+                      {r.avgSignalStrengthDbm != null
+                        ? `${r.avgSignalStrengthDbm.toFixed(0)} dBm`
+                        : r.signalStrengthDbm != null
+                          ? `${r.signalStrengthDbm} dBm`
+                          : '—'}
+                    </td>
+                    <td><StatusBadge status={r.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
