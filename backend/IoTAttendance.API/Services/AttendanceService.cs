@@ -203,48 +203,67 @@ public class AttendanceService
                 .Where(s => s.LectureId == lectureId && s.DayOfWeek == dayOfWeek)
                 .FirstOrDefaultAsync();
 
+            // Group sessions by student — one attendance record per student per day
             var changed = false;
-            foreach (var session in sessions)
+            var grouped = sessions.GroupBy(s => s.StudentId);
+
+            foreach (var group in grouped)
             {
-                var alreadyExists = await _db.AttendanceRecords
-                    .AnyAsync(a =>
-                        a.StudentId == session.StudentId &&
-                        a.LectureId == lectureId &&
-                        a.Date == date);
+                var studentId = group.Key;
 
-                if (alreadyExists) continue;
-
-                var duration = session.DurationMinutes
-                    ?? (session.EndTime.HasValue
-                        ? (session.EndTime.Value - session.StartTime).TotalMinutes
-                        : (DateTime.UtcNow - session.StartTime).TotalMinutes);
+                var earliest = group.OrderBy(s => s.StartTime).First();
+                var latest = group.OrderByDescending(s => s.EndTime ?? DateTime.MaxValue).First();
+                var totalDuration = group.Sum(s =>
+                    s.DurationMinutes
+                    ?? (s.EndTime.HasValue
+                        ? (s.EndTime.Value - s.StartTime).TotalMinutes
+                        : (DateTime.UtcNow - s.StartTime).TotalMinutes));
+                var avgSignal = group.Where(s => s.AvgSignalDbm.HasValue)
+                    .Select(s => s.AvgSignalDbm!.Value).DefaultIfEmpty(0).Average();
 
                 var status = AttendanceStatus.Present;
                 if (schedule != null)
                 {
-                    var sessionTime = TimeOnly.FromDateTime(session.StartTime);
-                    var minutesLate = (sessionTime - schedule.StartTime).TotalMinutes;
+                    var firstConnectTime = TimeOnly.FromDateTime(earliest.StartTime);
+                    var minutesLate = (firstConnectTime - schedule.StartTime).TotalMinutes;
                     if (minutesLate > 10) status = AttendanceStatus.Late;
                 }
 
-                _db.AttendanceRecords.Add(new AttendanceRecord
-                {
-                    LectureId = lectureId,
-                    StudentId = session.StudentId,
-                    ScheduleId = schedule?.Id,
-                    Date = date,
-                    Status = status,
-                    CheckInTime = session.StartTime,
-                    CheckOutTime = session.EndTime,
-                    SignalStrengthDbm = session.InitialSignalDbm,
-                    AvgSignalStrengthDbm = session.AvgSignalDbm,
-                    ConnectionDurationMinutes = duration
-                });
-                changed = true;
+                var existing = await _db.AttendanceRecords
+                    .FirstOrDefaultAsync(a =>
+                        a.StudentId == studentId &&
+                        a.LectureId == lectureId &&
+                        a.Date == date);
 
-                _logger.LogInformation("MaterializeFromSessions: Created attendance record for student {StudentId}, " +
-                    "lecture {LectureId}, date {Date}, status {Status}, duration {Duration:F1} min",
-                    session.StudentId, lectureId, date, status, duration);
+                if (existing != null)
+                {
+                    // Update with latest session data (don't touch manually overridden records)
+                    if (!existing.IsManualOverride)
+                    {
+                        existing.CheckOutTime = latest.EndTime;
+                        existing.ConnectionDurationMinutes = totalDuration;
+                        existing.AvgSignalStrengthDbm = avgSignal;
+                        existing.UpdatedAt = DateTime.UtcNow;
+                        changed = true;
+                    }
+                }
+                else
+                {
+                    _db.AttendanceRecords.Add(new AttendanceRecord
+                    {
+                        LectureId = lectureId,
+                        StudentId = studentId,
+                        ScheduleId = schedule?.Id,
+                        Date = date,
+                        Status = status,
+                        CheckInTime = earliest.StartTime,
+                        CheckOutTime = latest.EndTime,
+                        SignalStrengthDbm = earliest.InitialSignalDbm,
+                        AvgSignalStrengthDbm = avgSignal,
+                        ConnectionDurationMinutes = totalDuration
+                    });
+                    changed = true;
+                }
             }
 
             if (changed)

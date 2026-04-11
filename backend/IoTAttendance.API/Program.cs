@@ -108,6 +108,8 @@ using (var scope = app.Services.CreateScope())
         await db.Database.ExecuteSqlRawAsync(
             "DROP INDEX IF EXISTS \"IX_attendance_records_StudentId_ScheduleId_Date\";");
         await db.Database.ExecuteSqlRawAsync(
+            "DROP INDEX IF EXISTS \"IX_attendance_records_student_id_schedule_id_date\";");
+        await db.Database.ExecuteSqlRawAsync(
             """CREATE UNIQUE INDEX IF NOT EXISTS "IX_attendance_records_StudentId_LectureId_Date" ON attendance_records (student_id, lecture_id, date);""");
     }
     catch
