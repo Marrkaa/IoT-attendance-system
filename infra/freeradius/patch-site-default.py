@@ -104,7 +104,13 @@ def main() -> int:
 
         def repl_pap(m: re.Match[str]) -> str:
             indent = m.group(2)
-            return m.group(1) + "\n" + indent + "rest_iot_api\n"
+            return (
+                m.group(1) + "\n"
+                + indent + "rest_iot_api\n"
+                + indent + "if (&reply:REST-HTTP-Body == \"OK\") {\n"
+                + indent + "\tok\n"
+                + indent + "}\n"
+            )
 
         text, n = re.subn(
             r"(Auth-Type PAP\s*\{)\s*\n(\s*)(\[pap\]|pap)\s*\n",
@@ -116,11 +122,34 @@ def main() -> int:
             print("Klaida: nepavyko pakeisti pap/[pap] -> rest_iot_api.", file=sys.stderr)
             return 1
     else:
-        if "rest_iot_api" in text and "Auth-Type PAP" in text:
-            print("Auth-Type PAP: jau naudojamas rest_iot_api (praleidžiama).")
+        PAP_OK_MARKER = 'if (&reply:REST-HTTP-Body == "OK")'
+        if "rest_iot_api" in text and "Auth-Type PAP" in text and PAP_OK_MARKER not in text:
+            old_block = "	Auth-Type PAP {
+		rest_iot_api
+	}"
+            new_block = (
+                "	Auth-Type PAP {
+"
+                "		rest_iot_api
+"
+                '		if (&reply:REST-HTTP-Body == "OK") {
+'
+                "			ok
+"
+                "		}
+"
+                "	}"
+            )
+            if old_block in text:
+                text = text.replace(old_block, new_block)
+                print("Auth-Type PAP: pridetas ok-check po rest_iot_api.")
+            else:
+                print("Auth-Type PAP: jau naudojamas rest_iot_api (praleidžiama).")
+        elif "rest_iot_api" in text and "Auth-Type PAP" in text:
+            print("Auth-Type PAP: jau naudojamas rest_iot_api su ok-check (praleidžiama).")
         else:
             print(
-                "Klaida: nerasta „Auth-Type PAP { … pap / [pap] … }“. Redaguok ranka.",
+                "Klaida: nerasta Auth-Type PAP bloko. Redaguok ranka.",
                 file=sys.stderr,
             )
             return 1

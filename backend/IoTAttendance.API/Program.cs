@@ -188,6 +188,63 @@ using (var scope = app.Services.CreateScope())
         });
         await db.SaveChangesAsync();
     }
+
+    await EnsureStudent2ForLiveDemoAsync(db);
 }
 
 app.Run();
+
+static async Task EnsureStudent2ForLiveDemoAsync(AppDbContext db)
+{
+    const string email = "student2@school.edu";
+    if (await db.Users.AnyAsync(u => u.Email == email))
+        return;
+
+    var student2 = new IoTAttendance.API.Models.User
+    {
+        Email = email,
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword("password"),
+        FirstName = "Bob",
+        LastName = "Jones",
+        Role = IoTAttendance.API.Models.UserRole.Student
+    };
+    db.Users.Add(student2);
+    await db.SaveChangesAsync();
+
+    db.RadiusAccounts.Add(new IoTAttendance.API.Models.RadiusAccount
+    {
+        UserId = student2.Id,
+        RadiusUsername = student2.Email,
+        RadiusPasswordHash = BCrypt.Net.BCrypt.HashPassword("password")
+    });
+    await db.SaveChangesAsync();
+
+    var student1 = await db.Users.FirstOrDefaultAsync(u => u.Email == "student1@school.edu");
+    var lectureIds = student1 == null
+        ? new List<Guid>()
+        : await db.Enrollments
+            .Where(e => e.StudentId == student1.Id)
+            .Select(e => e.LectureId)
+            .Distinct()
+            .ToListAsync();
+
+    if (lectureIds.Count == 0)
+    {
+        var any = await db.Lectures.Select(l => l.Id).FirstOrDefaultAsync();
+        if (any != Guid.Empty)
+            lectureIds.Add(any);
+    }
+
+    foreach (var lid in lectureIds)
+    {
+        if (await db.Enrollments.AnyAsync(e => e.StudentId == student2.Id && e.LectureId == lid))
+            continue;
+        db.Enrollments.Add(new IoTAttendance.API.Models.Enrollment
+        {
+            StudentId = student2.Id,
+            LectureId = lid
+        });
+    }
+
+    await db.SaveChangesAsync();
+}
