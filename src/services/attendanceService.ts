@@ -68,7 +68,7 @@ export const attendanceService = {
     if (USE_MOCK) {
       await new Promise(resolve => setTimeout(resolve, 500));
       const record = mockAttendance.find(a => a.id === id);
-      if (!record) throw new Error('Įrašas nerastas');
+      if (!record) throw new Error('Record not found');
       return { ...record, status: status as AttendanceRecord['status'] };
     }
 
@@ -76,7 +76,7 @@ export const attendanceService = {
   },
 
   getLiveAttendance: async (lectureId: string): Promise<LiveAttendanceData[]> => {
-    // Live ekranas visada iš realaus API (station dump + MAC), ne iš mock.
+    // Live screen always uses the real API (station dump + MAC), not mock data.
     return apiClient.get<LiveAttendanceData[]>(`/attendance/live/${lectureId}`);
   },
 

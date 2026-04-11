@@ -25,7 +25,7 @@ public class ScheduleService
     public async Task<ScheduleDto> GetByIdAsync(Guid id)
     {
         var schedule = await _db.Schedules.Include(s => s.Lecture).FirstOrDefaultAsync(s => s.Id == id)
-            ?? throw new KeyNotFoundException("Tvarkaraštis nerastas.");
+            ?? throw new KeyNotFoundException("Schedule not found.");
         return MapToDto(schedule);
     }
 
@@ -49,7 +49,7 @@ public class ScheduleService
     public async Task<ScheduleDto> UpdateAsync(Guid id, UpdateScheduleRequest request)
     {
         var schedule = await _db.Schedules.FindAsync(id)
-            ?? throw new KeyNotFoundException("Tvarkaraštis nerastas.");
+            ?? throw new KeyNotFoundException("Schedule not found.");
 
         if (request.DayOfWeek.HasValue) schedule.DayOfWeek = request.DayOfWeek.Value;
         if (request.StartTime != null) schedule.StartTime = TimeOnly.Parse(request.StartTime);
@@ -64,7 +64,7 @@ public class ScheduleService
     public async Task DeleteAsync(Guid id)
     {
         var schedule = await _db.Schedules.FindAsync(id)
-            ?? throw new KeyNotFoundException("Tvarkaraštis nerastas.");
+            ?? throw new KeyNotFoundException("Schedule not found.");
         _db.Schedules.Remove(schedule);
         await _db.SaveChangesAsync();
     }

@@ -35,12 +35,12 @@ public class StudentDeviceService
     public async Task<StudentDeviceDto> RegisterAsync(RegisterDeviceRequest request)
     {
         var macNormalized = TryNormalizeMacAddress(request.MacAddress)
-            ?? throw new InvalidOperationException("Neteisingas MAC formatas.");
+            ?? throw new InvalidOperationException("Invalid MAC address format.");
 
         var existing = await _db.StudentDevices
             .FirstOrDefaultAsync(d => d.MacAddress == macNormalized);
         if (existing != null)
-            throw new InvalidOperationException("Šis MAC adresas jau registruotas sistemoje.");
+            throw new InvalidOperationException("This MAC address is already registered.");
 
         var device = new StudentDevice
         {
@@ -58,7 +58,7 @@ public class StudentDeviceService
     public async Task<StudentDeviceDto> UpdateAsync(Guid id, UpdateDeviceRequest request)
     {
         var device = await _db.StudentDevices.Include(d => d.Student).FirstOrDefaultAsync(d => d.Id == id)
-            ?? throw new KeyNotFoundException("Įrenginys nerastas.");
+            ?? throw new KeyNotFoundException("Device not found.");
 
         if (request.DeviceName != null) device.DeviceName = request.DeviceName;
         if (request.IsActive.HasValue) device.IsActive = request.IsActive.Value;
@@ -70,7 +70,7 @@ public class StudentDeviceService
     public async Task DeleteAsync(Guid id)
     {
         var device = await _db.StudentDevices.FindAsync(id)
-            ?? throw new KeyNotFoundException("Įrenginys nerastas.");
+            ?? throw new KeyNotFoundException("Device not found.");
         _db.StudentDevices.Remove(device);
         await _db.SaveChangesAsync();
     }

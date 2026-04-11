@@ -106,7 +106,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch
     {
-        // Senesnėse DB be hotspot_sessions – ignoruoti
+        // Older DBs without hotspot_sessions — ignore migration errors
     }
 
     if (!db.Users.Any())
@@ -173,8 +173,8 @@ using (var scope = app.Services.CreateScope())
 
         var lecture = new IoTAttendance.API.Models.Lecture
         {
-            Title = "IoT lankomumas (demo)",
-            Description = "Demo paskaita live attendance ekranui",
+            Title = "IoT attendance (demo)",
+            Description = "Demo lecture for the live attendance screen",
             LecturerId = lecturer.Id,
             RoomId = room.Id
         };

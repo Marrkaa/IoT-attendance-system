@@ -24,10 +24,10 @@ public class AuthService
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
         if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-            throw new UnauthorizedAccessException("Neteisingas el. pašto adresas arba slaptažodis.");
+            throw new UnauthorizedAccessException("Invalid email or password.");
 
         if (!user.IsActive)
-            throw new UnauthorizedAccessException("Paskyra yra deaktyvuota.");
+            throw new UnauthorizedAccessException("Account is deactivated.");
 
         var token = GenerateJwtToken(user);
         return new AuthResponse(token, MapToDto(user));
@@ -36,7 +36,7 @@ public class AuthService
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
         if (await _db.Users.AnyAsync(u => u.Email == request.Email))
-            throw new InvalidOperationException("Naudotojas su šiuo el. pašto adresu jau egzistuoja.");
+            throw new InvalidOperationException("A user with this email already exists.");
 
         var user = new User
         {
@@ -67,17 +67,17 @@ public class AuthService
     public async Task<UserDto> GetCurrentUserAsync(Guid userId)
     {
         var user = await _db.Users.FindAsync(userId)
-            ?? throw new KeyNotFoundException("Naudotojas nerastas.");
+            ?? throw new KeyNotFoundException("User not found.");
         return MapToDto(user);
     }
 
     public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
     {
         var user = await _db.Users.FindAsync(userId)
-            ?? throw new KeyNotFoundException("Naudotojas nerastas.");
+            ?? throw new KeyNotFoundException("User not found.");
 
         if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
-            throw new UnauthorizedAccessException("Neteisingas dabartinis slaptažodis.");
+            throw new UnauthorizedAccessException("Current password is incorrect.");
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.UpdatedAt = DateTime.UtcNow;
@@ -113,7 +113,7 @@ public class AuthService
             BCrypt.Net.BCrypt.Verify(request.Token, u.PasswordResetToken));
 
         if (user == null)
-            throw new InvalidOperationException("Neteisingas arba pasibaigęs slaptažodžio atkūrimo raktas.");
+            throw new InvalidOperationException("Invalid or expired password reset token.");
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.PasswordResetToken = null;

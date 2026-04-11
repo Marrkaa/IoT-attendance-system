@@ -36,7 +36,7 @@ export const deviceService = {
       await new Promise((r) => setTimeout(r, 500));
       const mac = data.macAddress.toUpperCase().trim();
       if (mockStudentDevices.some((d) => d.macAddress === mac)) {
-        throw new Error('Šis MAC adresas jau registruotas.');
+        throw new Error('This MAC address is already registered.');
       }
       const student = mockUsers.find((u) => u.id === data.studentId);
       const created: StudentDevice = {
@@ -65,7 +65,7 @@ export const deviceService = {
     if (USE_MOCK) {
       await new Promise((r) => setTimeout(r, 400));
       const i = mockStudentDevices.findIndex((d) => d.id === id);
-      if (i === -1) throw new Error('Įrenginys nerastas');
+      if (i === -1) throw new Error('Device not found');
       mockStudentDevices[i] = { ...mockStudentDevices[i], ...data };
       return mockStudentDevices[i];
     }
@@ -76,7 +76,7 @@ export const deviceService = {
     if (USE_MOCK) {
       await new Promise((r) => setTimeout(r, 400));
       const i = mockStudentDevices.findIndex((d) => d.id === id);
-      if (i === -1) throw new Error('Įrenginys nerastas');
+      if (i === -1) throw new Error('Device not found');
       mockStudentDevices.splice(i, 1);
       return;
     }

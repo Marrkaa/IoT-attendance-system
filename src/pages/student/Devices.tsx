@@ -20,7 +20,7 @@ export function StudentDevicesPage() {
     try {
       setDevices(await deviceService.getByStudent(user.id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Klaida');
+      setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -42,7 +42,7 @@ export function StudentDevicesPage() {
       setForm({ macAddress: '', deviceName: '' });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Klaida');
+      setError(e instanceof Error ? e.message : 'Something went wrong');
     }
   };
 
@@ -51,11 +51,11 @@ export function StudentDevicesPage() {
   return (
     <div>
       <PageHeader
-        title="Mano įrenginiai"
-        subtitle="Užregistruokite savo telefono MAC adresą — sistema sies jį su Wi-Fi signalu auditorijoje (Teltonika / station dump)."
+        title="My devices"
+        subtitle="Register your phone’s Wi‑Fi MAC so the system can match signal readings in the room (Teltonika / station dump)."
         action={
           <button type="button" className="btn btn-primary" onClick={() => setModalOpen(true)}>
-            <Smartphone size={16} /> Pridėti įrenginį
+            <Smartphone size={16} /> Add device
           </button>
         }
       />
@@ -68,27 +68,27 @@ export function StudentDevicesPage() {
 
       <div className="card" style={{ padding: '1.25rem' }}>
         {loading ? (
-          <p style={{ color: 'var(--text-secondary)' }}>Kraunama…</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Loading…</p>
         ) : (
           <DeviceManagementTable devices={devices} showStudentColumn={false} />
         )}
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Registruoti mobilųjį įrenginį">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Register mobile device">
         <div className="form-group">
-          <label className="form-label">Wi‑Fi MAC adresas</label>
+          <label className="form-label">Wi‑Fi MAC address</label>
           <input
             className="form-input"
-            placeholder="Pvz. AA:BB:CC:DD:EE:FF"
+            placeholder="e.g. AA:BB:CC:DD:EE:FF"
             value={form.macAddress}
             onChange={(e) => setForm((f) => ({ ...f, macAddress: e.target.value }))}
           />
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-            Raskite nustatymuose: Wi‑Fi → išsami informacija / apie telefoną (priklausomai nuo OS).
+            Find it under Settings → Wi‑Fi → details / About phone (depends on OS).
           </p>
         </div>
         <div className="form-group">
-          <label className="form-label">Pavadinimas (nebūtina)</label>
+          <label className="form-label">Name (optional)</label>
           <input
             className="form-input"
             value={form.deviceName}
@@ -97,10 +97,10 @@ export function StudentDevicesPage() {
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
           <button type="button" className="btn btn-outline" onClick={() => setModalOpen(false)}>
-            Atšaukti
+            Cancel
           </button>
           <button type="button" className="btn btn-primary" onClick={handleRegister}>
-            Registruoti
+            Register
           </button>
         </div>
       </Modal>

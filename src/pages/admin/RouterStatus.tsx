@@ -80,22 +80,22 @@ export function RouterStatusPage() {
   return (
     <div>
       <PageHeader
-        title="Routerio / IoT būsena"
-        subtitle="Teltonika RUTX11 mazgai: prisijungę klientai, signalo stiprumas (iš station dump). Prototipe — demo duomenys."
+        title="Router / IoT status"
+        subtitle="Teltonika RUTX11 nodes: connected clients and signal strength (from station dump). Prototype may use demo data."
         action={
           <button type="button" className="btn btn-outline" onClick={manualRefresh} disabled={!selectedId || refreshing}>
             <RefreshCw size={16} style={{ marginRight: 6 }} />
-            Atnaujinti
+            Refresh
           </button>
         }
       />
 
       <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1rem' }}>
         <label className="form-label" style={{ marginBottom: '0.5rem' }}>
-          IoT mazgas (auditorija)
+          IoT node (room)
         </label>
         {loading ? (
-          <p style={{ color: 'var(--text-secondary)' }}>Kraunamas sąrašas…</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Loading list…</p>
         ) : (
           <select
             className="form-input"
@@ -104,7 +104,7 @@ export function RouterStatusPage() {
             onChange={(e) => setSelectedId(e.target.value)}
           >
             {nodes.length === 0 ? (
-              <option value="">Nėra užregistruotų mazgų</option>
+              <option value="">No registered nodes</option>
             ) : (
               nodes.map((n) => (
                 <option key={n.id} value={n.id}>

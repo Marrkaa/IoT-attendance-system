@@ -25,7 +25,7 @@ export const userService = {
     if (USE_MOCK) {
       await new Promise(resolve => setTimeout(resolve, 500));
       const user = mockUsers.find(u => u.id === id);
-      if (!user) throw new Error('Naudotojas nerastas');
+      if (!user) throw new Error('User not found');
       return user;
     }
 
@@ -47,7 +47,7 @@ export const userService = {
     if (USE_MOCK) {
       await new Promise(resolve => setTimeout(resolve, 500));
       const index = mockUsers.findIndex(u => u.id === id);
-      if (index === -1) throw new Error('Naudotojas nerastas');
+      if (index === -1) throw new Error('User not found');
       mockUsers[index] = { ...mockUsers[index], ...data };
       return mockUsers[index];
     }

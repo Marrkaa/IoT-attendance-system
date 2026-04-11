@@ -39,16 +39,16 @@ public class RadiusController : ControllerBase
     [AllowAnonymous] // RADIUS server uses shared secret
     public async Task<IActionResult> Authenticate(CancellationToken cancellationToken)
     {
-        // FreeRADIUS rlm_rest dažnai nesiunčia Content-Type; [FromForm] nepriveda laukų → visada 401.
+        // FreeRADIUS rlm_rest often omits Content-Type; [FromForm] may not bind — read body manually.
         var (username, password) = await ReadRadiusAuthFormAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(username))
-            return BadRequest(new { error = "Trūksta username." });
+            return BadRequest(new { error = "Missing username." });
 
         var isValid = await _radiusService.ValidateCredentialsAsync(username, password ?? string.Empty);
         if (!isValid)
-            return Unauthorized(new { Reply_Message = "Autentifikacija nepavyko." });
+            return Unauthorized(new { Reply_Message = "Authentication failed." });
 
-        // rlm_rest: kai kurios versijos blogai tvarko tuščią 200 arba JSON – paprastas text/plain.
+        // rlm_rest: some versions mishandle empty 200 or JSON — return plain text OK.
         return Content("OK", "text/plain; charset=utf-8", Encoding.UTF8);
     }
 
@@ -77,8 +77,8 @@ public class RadiusController : ControllerBase
     }
 
     /// <summary>
-    /// RADIUS Accounting (Accounting-Request). FreeRADIUS rest modulis kviečia po sėkmingos autentifikacijos,
-    /// kad būtų užregistruotas telefono MAC (<c>Calling-Station-Id</c>) prie studento įrenginių.
+    /// RADIUS Accounting (Accounting-Request). The FreeRADIUS rest module calls this after successful auth
+    /// to record the phone MAC (<c>Calling-Station-Id</c>) on the student’s devices.
     /// </summary>
     [HttpPost("accounting")]
     [AllowAnonymous]

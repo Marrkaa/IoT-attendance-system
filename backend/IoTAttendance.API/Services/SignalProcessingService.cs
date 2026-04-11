@@ -109,7 +109,7 @@ public class SignalProcessingService
         var schedule = await _db.Schedules
             .Include(s => s.Lecture).ThenInclude(l => l.Enrollments)
             .FirstOrDefaultAsync(s => s.Id == scheduleId)
-            ?? throw new KeyNotFoundException("Tvarkaraštis nerastas.");
+            ?? throw new KeyNotFoundException("Schedule not found.");
 
         foreach (var enrollment in schedule.Lecture.Enrollments)
         {

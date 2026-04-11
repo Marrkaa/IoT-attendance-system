@@ -35,7 +35,7 @@ public class LectureService
             .Include(l => l.Schedules)
             .Include(l => l.Enrollments)
             .FirstOrDefaultAsync(l => l.Id == id)
-            ?? throw new KeyNotFoundException("Paskaita nerasta.");
+            ?? throw new KeyNotFoundException("Lecture not found.");
         return MapToDto(lecture);
     }
 
@@ -58,7 +58,7 @@ public class LectureService
     public async Task<LectureDto> UpdateAsync(Guid id, UpdateLectureRequest request)
     {
         var lecture = await _db.Lectures.FindAsync(id)
-            ?? throw new KeyNotFoundException("Paskaita nerasta.");
+            ?? throw new KeyNotFoundException("Lecture not found.");
 
         if (request.Title != null) lecture.Title = request.Title;
         if (request.Description != null) lecture.Description = request.Description;
@@ -72,7 +72,7 @@ public class LectureService
     public async Task DeleteAsync(Guid id)
     {
         var lecture = await _db.Lectures.FindAsync(id)
-            ?? throw new KeyNotFoundException("Paskaita nerasta.");
+            ?? throw new KeyNotFoundException("Lecture not found.");
         _db.Lectures.Remove(lecture);
         await _db.SaveChangesAsync();
     }

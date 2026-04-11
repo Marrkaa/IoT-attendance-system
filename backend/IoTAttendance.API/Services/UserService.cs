@@ -31,14 +31,14 @@ public class UserService
     public async Task<UserDto> GetByIdAsync(Guid id)
     {
         var user = await _db.Users.FindAsync(id)
-            ?? throw new KeyNotFoundException("Naudotojas nerastas.");
+            ?? throw new KeyNotFoundException("User not found.");
         return AuthService.MapToDto(user);
     }
 
     public async Task<UserDto> CreateAsync(CreateUserRequest request)
     {
         if (await _db.Users.AnyAsync(u => u.Email == request.Email))
-            throw new InvalidOperationException("Naudotojas su šiuo el. paštu jau egzistuoja.");
+            throw new InvalidOperationException("A user with this email already exists.");
 
         var user = new User
         {
@@ -57,7 +57,7 @@ public class UserService
     public async Task<UserDto> UpdateAsync(Guid id, UpdateUserRequest request)
     {
         var user = await _db.Users.FindAsync(id)
-            ?? throw new KeyNotFoundException("Naudotojas nerastas.");
+            ?? throw new KeyNotFoundException("User not found.");
 
         if (request.FirstName != null) user.FirstName = request.FirstName;
         if (request.LastName != null) user.LastName = request.LastName;
@@ -73,7 +73,7 @@ public class UserService
     public async Task DeleteAsync(Guid id)
     {
         var user = await _db.Users.FindAsync(id)
-            ?? throw new KeyNotFoundException("Naudotojas nerastas.");
+            ?? throw new KeyNotFoundException("User not found.");
         _db.Users.Remove(user);
         await _db.SaveChangesAsync();
     }

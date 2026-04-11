@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace IoTAttendance.API.Services;
 
 /// <summary>
-/// RADIUS paskyros + accounting: sesijos į DB be station dump (tik iš RADIUS paketų).
+/// RADIUS accounts + accounting: sessions in DB from RADIUS packets (not station dump).
 /// </summary>
 public class RadiusService
 {
@@ -36,7 +36,7 @@ public class RadiusService
     {
         var existing = await _db.RadiusAccounts.FirstOrDefaultAsync(r => r.UserId == userId);
         if (existing != null)
-            throw new InvalidOperationException("RADIUS paskyra jau sukurta šiam naudotojui.");
+            throw new InvalidOperationException("RADIUS account already exists for this user.");
 
         var account = new RadiusAccount
         {
@@ -53,7 +53,7 @@ public class RadiusService
     public async Task UpdatePasswordAsync(Guid userId, string newPassword)
     {
         var account = await _db.RadiusAccounts.FirstOrDefaultAsync(r => r.UserId == userId)
-            ?? throw new KeyNotFoundException("RADIUS paskyra nerasta.");
+            ?? throw new KeyNotFoundException("RADIUS account not found.");
 
         account.RadiusPasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         account.UpdatedAt = DateTime.UtcNow;
@@ -63,7 +63,7 @@ public class RadiusService
     public async Task SetEnabledAsync(Guid userId, bool enabled)
     {
         var account = await _db.RadiusAccounts.FirstOrDefaultAsync(r => r.UserId == userId)
-            ?? throw new KeyNotFoundException("RADIUS paskyra nerasta.");
+            ?? throw new KeyNotFoundException("RADIUS account not found.");
 
         account.IsEnabled = enabled;
         account.UpdatedAt = DateTime.UtcNow;
@@ -78,7 +78,7 @@ public class RadiusService
     }
 
     /// <summary>
-    /// Pilnas RADIUS Accounting: Start / Stop / Interim-Update → HotspotSession + MAC į StudentDevice.
+    /// Full RADIUS accounting: Start / Stop / Interim-Update → HotspotSession + MAC on StudentDevice.
     /// </summary>
     public async Task ProcessAccountingAsync(
         string? userName,
@@ -209,7 +209,7 @@ public class RadiusService
         var first = await _db.IoTNodes.OrderBy(n => n.Hostname).Select(n => n.Id).FirstOrDefaultAsync();
         if (first == Guid.Empty)
             throw new InvalidOperationException(
-                "Nėra IoT mazgo DB. Sukurkite mazgą (admin) arba nustatykite Radius:DefaultIoTNodeId.");
+                "No IoT node in the database. Create one (admin) or set Radius:DefaultIoTNodeId.");
         return first;
     }
 

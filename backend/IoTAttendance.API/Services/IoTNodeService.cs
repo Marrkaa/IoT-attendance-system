@@ -33,7 +33,7 @@ public class IoTNodeService
     public async Task<IoTNodeDto> GetByIdAsync(Guid id)
     {
         var node = await _db.IoTNodes.Include(n => n.Room).FirstOrDefaultAsync(n => n.Id == id)
-            ?? throw new KeyNotFoundException("IoT mazgas nerastas.");
+            ?? throw new KeyNotFoundException("IoT node not found.");
 
         var connectedCount = await _db.WifiConnectionLogs
             .Where(w => w.IoTNodeId == node.Id && w.EventType == ConnectionEventType.Connected)
@@ -48,11 +48,11 @@ public class IoTNodeService
     {
         var roomExists = await _db.Rooms.AnyAsync(r => r.Id == request.RoomId);
         if (!roomExists)
-            throw new KeyNotFoundException("Auditorija nerasta.");
+            throw new KeyNotFoundException("Room not found.");
 
         var existingNode = await _db.IoTNodes.AnyAsync(n => n.RoomId == request.RoomId);
         if (existingNode)
-            throw new InvalidOperationException("Šiai auditorijai jau priskirtas IoT mazgas.");
+            throw new InvalidOperationException("This room already has an IoT node assigned.");
 
         var node = new IoTNode
         {
@@ -72,7 +72,7 @@ public class IoTNodeService
     public async Task<IoTNodeDto> UpdateAsync(Guid id, UpdateIoTNodeRequest request)
     {
         var node = await _db.IoTNodes.FindAsync(id)
-            ?? throw new KeyNotFoundException("IoT mazgas nerastas.");
+            ?? throw new KeyNotFoundException("IoT node not found.");
 
         if (request.Hostname != null) node.Hostname = request.Hostname;
         if (request.IpAddress != null) node.IpAddress = request.IpAddress;
@@ -87,7 +87,7 @@ public class IoTNodeService
     public async Task DeleteAsync(Guid id)
     {
         var node = await _db.IoTNodes.FindAsync(id)
-            ?? throw new KeyNotFoundException("IoT mazgas nerastas.");
+            ?? throw new KeyNotFoundException("IoT node not found.");
         _db.IoTNodes.Remove(node);
         await _db.SaveChangesAsync();
     }

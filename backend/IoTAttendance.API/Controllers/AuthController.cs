@@ -50,14 +50,14 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
     {
         await _authService.ForgotPasswordAsync(request);
-        return Ok(new { message = "Jei toks el. paštas egzistuoja, nuoroda išsiųsta." });
+        return Ok(new { message = "If that email exists, a reset link has been sent." });
     }
 
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
     {
         await _authService.ResetPasswordAsync(request);
-        return Ok(new { message = "Slaptažodis sėkmingai pakeistas." });
+        return Ok(new { message = "Password changed successfully." });
     }
 
     protected Guid GetUserId()

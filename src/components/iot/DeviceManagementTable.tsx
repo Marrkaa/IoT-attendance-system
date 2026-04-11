@@ -16,7 +16,7 @@ export function DeviceManagementTable({
   if (devices.length === 0) {
     return (
       <p style={{ color: 'var(--text-secondary)', padding: '1rem 0' }}>
-        Įrenginių nėra. Pridėkite mobiliojo telefono MAC adresą, kad sistema galėtų sieti Wi-Fi signalą su jumis.
+        No devices yet. Add your phone’s Wi‑Fi MAC so the system can correlate signal readings with you.
       </p>
     );
   }
@@ -26,12 +26,12 @@ export function DeviceManagementTable({
       <table className="table">
         <thead>
           <tr>
-            <th>MAC adresas</th>
-            <th>Įrenginys</th>
-            {showStudentColumn && <th>Studentas</th>}
-            <th>Būsena</th>
-            <th>Paskutinį kartą matytas</th>
-            {(onToggleActive || onDelete) && <th>Veiksmai</th>}
+            <th>MAC address</th>
+            <th>Device</th>
+            {showStudentColumn && <th>Student</th>}
+            <th>Status</th>
+            <th>Last seen</th>
+            {(onToggleActive || onDelete) && <th>Actions</th>}
           </tr>
         </thead>
         <tbody>
@@ -42,11 +42,11 @@ export function DeviceManagementTable({
               {showStudentColumn && <td>{d.studentName ?? d.studentId}</td>}
               <td>
                 <span className={`badge ${d.isActive ? 'badge-success' : ''}`} style={d.isActive ? undefined : { background: '#F3F4F6', color: '#6B7280' }}>
-                  {d.isActive ? 'Aktyvus' : 'Neaktyvus'}
+                  {d.isActive ? 'Active' : 'Inactive'}
                 </span>
               </td>
               <td style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                {d.lastSeen ? new Date(d.lastSeen).toLocaleString('lt-LT') : '—'}
+                {d.lastSeen ? new Date(d.lastSeen).toLocaleString('en-US') : '—'}
               </td>
               {(onToggleActive || onDelete) && (
                 <td>
@@ -58,7 +58,7 @@ export function DeviceManagementTable({
                         style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
                         onClick={() => onToggleActive(d)}
                       >
-                        {d.isActive ? 'Išjungti' : 'Įjungti'}
+                        {d.isActive ? 'Deactivate' : 'Activate'}
                       </button>
                     )}
                     {onDelete && (
@@ -68,7 +68,7 @@ export function DeviceManagementTable({
                         style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', color: 'var(--danger, #c00)' }}
                         onClick={() => onDelete(d)}
                       >
-                        Šalinti
+                        Remove
                       </button>
                     )}
                   </div>

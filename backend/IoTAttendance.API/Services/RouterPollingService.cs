@@ -32,7 +32,7 @@ public class RouterPollingService
     public async Task ProcessStationDumpAsync(RouterStationDumpRequest request)
     {
         var node = await _db.IoTNodes.FindAsync(request.IoTNodeId)
-            ?? throw new KeyNotFoundException("IoT mazgas nerastas.");
+            ?? throw new KeyNotFoundException("IoT node not found.");
 
         // Update node status
         node.Status = IoTNodeStatus.Online;
@@ -76,7 +76,7 @@ public class RouterPollingService
     public async Task<RouterStatusDto> GetRouterStatusAsync(Guid iotNodeId)
     {
         var node = await _db.IoTNodes.FindAsync(iotNodeId)
-            ?? throw new KeyNotFoundException("IoT mazgas nerastas.");
+            ?? throw new KeyNotFoundException("IoT node not found.");
 
         // Get latest connection logs (last 5 minutes)
         var cutoff = DateTime.UtcNow.AddMinutes(-5);
@@ -119,10 +119,12 @@ public class RouterPollingService
             .Include(l => l.Enrollments).ThenInclude(e => e.Student)
                 .ThenInclude(s => s.StudentDevices)
             .FirstOrDefaultAsync(l => l.Id == lectureId)
-            ?? throw new KeyNotFoundException("Paskaita nerasta.");
+            ?? throw new KeyNotFoundException("Lecture not found.");
 
         var iotNode = lecture.Room?.IoTNode;
-        var cutoff = DateTime.UtcNow.AddMinutes(-5);
+        // Last RADIUS accounting (or Start): without new packets the session is treated as stale for the UI after this window.
+        // Station dump (Wi‑Fi) only sees L2 association — can appear before captive portal and linger after disconnect.
+        var liveEvidenceCutoff = DateTime.UtcNow.AddMinutes(-2);
 
         var result = new List<LiveAttendanceDto>();
 
@@ -134,30 +136,6 @@ public class RouterPollingService
                 .Select(d => d.MacAddress)
                 .ToList();
 
-            WifiConnectionLog? latestLog = null;
-            if (iotNode != null && activeMacs.Count != 0)
-            {
-                latestLog = await _db.WifiConnectionLogs
-                    .Where(w =>
-                        w.IoTNodeId == iotNode.Id &&
-                        activeMacs.Contains(w.ClientMacAddress) &&
-                        w.Timestamp > cutoff)
-                    .OrderByDescending(w => w.Timestamp)
-                    .FirstOrDefaultAsync();
-            }
-
-            // Get first connection today for duration
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            var firstConnection = iotNode != null && activeMacs.Count != 0
-                ? await _db.WifiConnectionLogs
-                    .Where(w =>
-                        w.IoTNodeId == iotNode.Id &&
-                        activeMacs.Contains(w.ClientMacAddress) &&
-                        DateOnly.FromDateTime(w.Timestamp) == today)
-                    .OrderBy(w => w.Timestamp)
-                    .FirstOrDefaultAsync()
-                : null;
-
             var todayUtc = DateTime.UtcNow.Date;
             HotspotSession? radiusSession = null;
             if (iotNode != null)
@@ -168,22 +146,38 @@ public class RouterPollingService
                         h.IoTNodeId == iotNode.Id &&
                         h.IsActive &&
                         h.EndTime == null &&
-                        h.StartTime >= todayUtc)
+                        h.StartTime >= todayUtc &&
+                        (h.LastAccountingAt ?? h.StartTime) >= liveEvidenceCutoff)
                     .OrderByDescending(h => h.StartTime)
                     .FirstOrDefaultAsync();
             }
 
             var radiusConnected = radiusSession != null;
-            var isConnected = latestLog != null || radiusConnected;
+
+            // Signal only when a valid RADIUS session exists (hotspot completed); otherwise Wi‑Fi alone would show “online”.
+            WifiConnectionLog? latestLog = null;
+            if (iotNode != null && activeMacs.Count != 0 && radiusConnected)
+            {
+                latestLog = await _db.WifiConnectionLogs
+                    .Where(w =>
+                        w.IoTNodeId == iotNode.Id &&
+                        activeMacs.Contains(w.ClientMacAddress) &&
+                        w.Timestamp > liveEvidenceCutoff)
+                    .OrderByDescending(w => w.Timestamp)
+                    .FirstOrDefaultAsync();
+            }
+
+            // Presence from RADIUS only; station dump no longer marks “connected” without accounting.
+            var isConnected = radiusConnected;
 
             var deviceMac = activeMacs.FirstOrDefault() ?? radiusSession?.DeviceMac;
 
-            DateTime? connectedSince = firstConnection?.Timestamp ?? radiusSession?.StartTime;
+            // Since / duration from RADIUS session (not first Wi‑Fi log of the day).
+            DateTime? connectedSince = null;
             double? connectionMinutes = null;
-            if (firstConnection != null)
-                connectionMinutes = (DateTime.UtcNow - firstConnection.Timestamp).TotalMinutes;
-            else if (radiusSession != null)
+            if (isConnected && radiusSession != null)
             {
+                connectedSince = radiusSession.StartTime;
                 connectionMinutes = radiusSession.DurationMinutes.HasValue && radiusSession.DurationMinutes > 0
                     ? radiusSession.DurationMinutes
                     : (DateTime.UtcNow - radiusSession.StartTime).TotalMinutes;

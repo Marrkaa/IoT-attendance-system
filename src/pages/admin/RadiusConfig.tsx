@@ -14,7 +14,7 @@ export function RadiusConfigPage() {
     try {
       setAccounts(await radiusService.listAccountsWithUsers());
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Klaida');
+      setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -29,15 +29,15 @@ export function RadiusConfigPage() {
       await radiusService.setEnabled(a.userId, !a.isEnabled);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Klaida');
+      setError(e instanceof Error ? e.message : 'Something went wrong');
     }
   };
 
   return (
     <div>
       <PageHeader
-        title="RADIUS konfigūracija"
-        subtitle="Hotspot autentifikacija ir studentų paskyrų valdymas (suderinama su FreeRADIUS + backend API)."
+        title="RADIUS configuration"
+        subtitle="Hotspot authentication and student RADIUS accounts (compatible with FreeRADIUS and this API)."
       />
 
       <RadiusInfoCard />
@@ -50,20 +50,20 @@ export function RadiusConfigPage() {
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>
-          RADIUS paskyros (studentai)
+          RADIUS accounts (students)
         </div>
         {loading ? (
-          <div style={{ padding: '1.5rem', color: 'var(--text-secondary)' }}>Kraunama…</div>
+          <div style={{ padding: '1.5rem', color: 'var(--text-secondary)' }}>Loading…</div>
         ) : (
           <div className="table-container">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Naudotojas</th>
-                  <th>El. paštas (RADIUS vardas)</th>
-                  <th>Būsena</th>
-                  <th>Sukurta</th>
-                  <th>Veiksmai</th>
+                  <th>User</th>
+                  <th>Email (RADIUS username)</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -73,15 +73,15 @@ export function RadiusConfigPage() {
                     <td style={{ fontSize: '0.875rem' }}>{a.radiusUsername}</td>
                     <td>
                       <span className={`badge ${a.isEnabled ? 'badge-success' : ''}`} style={a.isEnabled ? undefined : { background: '#F3F4F6', color: '#6B7280' }}>
-                        {a.isEnabled ? 'Įjungta' : 'Išjungta'}
+                        {a.isEnabled ? 'Enabled' : 'Disabled'}
                       </span>
                     </td>
                     <td style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                      {new Date(a.createdAt).toLocaleDateString('lt-LT')}
+                      {new Date(a.createdAt).toLocaleDateString('en-US')}
                     </td>
                     <td>
                       <button type="button" className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }} onClick={() => toggle(a)}>
-                        {a.isEnabled ? 'Išjungti hotspot' : 'Įjungti hotspot'}
+                        {a.isEnabled ? 'Disable hotspot' : 'Enable hotspot'}
                       </button>
                     </td>
                   </tr>

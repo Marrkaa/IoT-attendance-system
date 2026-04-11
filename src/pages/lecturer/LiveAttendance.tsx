@@ -36,7 +36,7 @@ export const LiveAttendancePage = () => {
         });
         setError(null);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Nepavyko įkelti paskaitų');
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load lectures');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -53,7 +53,7 @@ export const LiveAttendancePage = () => {
       setLive(rows);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Nepavyko įkelti live duomenų');
+      setError(e instanceof Error ? e.message : 'Failed to load live attendance');
     }
   }, [selectedLectureId]);
 
@@ -70,7 +70,6 @@ export const LiveAttendancePage = () => {
     <div>
       <PageHeader
         title="Live attendance"
-        subtitle="Wi‑Fi station dump ir/arba RADIUS accounting (be dump matysi tik iš accounting). Atnaujinama kas kelias sekundes."
         action={
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <select
@@ -97,7 +96,7 @@ export const LiveAttendancePage = () => {
                 }}
               />
               <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                Prisijungę dabar: <strong>{connectedCount}</strong> / {live.length}
+                Connected now: <strong>{connectedCount}</strong> / {live.length}
               </span>
             </div>
           </div>
@@ -110,11 +109,11 @@ export const LiveAttendancePage = () => {
         </div>
       )}
 
-      {loading && <p style={{ color: 'var(--text-secondary)' }}>Kraunama…</p>}
+      {loading && <p style={{ color: 'var(--text-secondary)' }}>Loading…</p>}
 
       {!loading && !lectures.length && (
         <div className="card" style={{ padding: '1rem' }}>
-          <p style={{ margin: 0 }}>Nėra paskaitų priskirtų šiam dėstytojui (arba API negrąžina sąrašo).</p>
+          <p style={{ margin: 0 }}>No lectures assigned to this lecturer (or the API returned an empty list).</p>
         </div>
       )}
 
@@ -126,37 +125,28 @@ export const LiveAttendancePage = () => {
           <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--primary)', margin: '0 0 0.25rem' }}>
             {activeLecture.title}
           </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-            {activeLecture.room?.name ?? 'Auditorija nepriskirta'} — <strong>Connected</strong> iš RADIUS: FreeRADIUS turi siųsti
-            accounting į <code>/api/radius/accounting</code> (Start/Interim/Stop). Station dump – papildomai signalui.
-          </p>
+          {activeLecture.room?.name && (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>{activeLecture.room.name}</p>
+          )}
         </div>
       )}
-
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          <strong>Disconnected?</strong> Įjunk RADIUS <em>accounting</em> į API (su <code>X-Api-Key</code>); Start su{' '}
-          <code>Calling-Station-Id</code> sukuria sesiją. Arba rankiniu būdu MAC + station dump. Studentas turi būti įstojęs į
-          paskaitą.
-        </p>
-      </div>
 
       <div className="table-container card">
         <table className="table">
           <thead>
             <tr>
-              <th>Studentas</th>
-              <th>Būsena</th>
+              <th>Student</th>
+              <th>Status</th>
               <th>MAC</th>
-              <th>Signalas</th>
-              <th>Nuo / trukmė</th>
+              <th>Signal</th>
+              <th>Since / duration</th>
             </tr>
           </thead>
           <tbody>
             {live.length === 0 && selectedLectureId && (
               <tr>
                 <td colSpan={5} style={{ color: 'var(--text-muted)', padding: '1rem' }}>
-                  Nėra įstojusių studentų šiai paskaitai arba dar nėra jokių ryšių įrašų.
+                  No students enrolled in this lecture, or there is no connection data yet.
                 </td>
               </tr>
             )}
@@ -171,7 +161,7 @@ export const LiveAttendancePage = () => {
                       color: row.status === 'Connected' ? undefined : 'var(--text-secondary)',
                     }}
                   >
-                    {row.status === 'Connected' ? 'Prisijungęs' : 'Ne prisijungęs'}
+                    {row.status === 'Connected' ? 'Connected' : 'Not connected'}
                   </span>
                 </td>
                 <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{row.deviceMac ?? '—'}</td>
@@ -187,7 +177,7 @@ export const LiveAttendancePage = () => {
                 </td>
                 <td>
                   {row.connectedSince
-                    ? `${new Date(row.connectedSince).toLocaleTimeString()} · ~${Math.round(row.connectionMinutes ?? 0)} min`
+                    ? `${new Date(row.connectedSince).toLocaleTimeString('en-US')} · ~${Math.round(row.connectionMinutes ?? 0)} min`
                     : '—'}
                 </td>
               </tr>

@@ -10,7 +10,7 @@ export interface RadiusAccountView extends RadiusAccount {
 }
 
 export const radiusService = {
-  /** Administratoriaus: RADIUS paskyros peržiūra pagal naudotoją */
+  /** Admin: list RADIUS accounts with user info */
   getAccountByUserId: async (userId: string): Promise<RadiusAccountView | null> => {
     if (USE_MOCK) {
       await new Promise((r) => setTimeout(r, 300));
@@ -50,7 +50,7 @@ export const radiusService = {
           userName: `${u.firstName} ${u.lastName}`,
         });
       } catch {
-        /* nėra RADIUS paskyros */
+        /* no RADIUS account */
       }
     }
     return out;

@@ -26,7 +26,7 @@ public class RoomService
         var room = await _db.Rooms
             .Include(r => r.IoTNode)
             .FirstOrDefaultAsync(r => r.Id == id)
-            ?? throw new KeyNotFoundException("Auditorija nerasta.");
+            ?? throw new KeyNotFoundException("Room not found.");
         return MapToDto(room);
     }
 
@@ -47,7 +47,7 @@ public class RoomService
     public async Task<RoomDto> UpdateAsync(Guid id, UpdateRoomRequest request)
     {
         var room = await _db.Rooms.Include(r => r.IoTNode).FirstOrDefaultAsync(r => r.Id == id)
-            ?? throw new KeyNotFoundException("Auditorija nerasta.");
+            ?? throw new KeyNotFoundException("Room not found.");
 
         if (request.Name != null) room.Name = request.Name;
         if (request.Capacity.HasValue) room.Capacity = request.Capacity.Value;
@@ -60,11 +60,11 @@ public class RoomService
     public async Task DeleteAsync(Guid id)
     {
         var room = await _db.Rooms.FindAsync(id)
-            ?? throw new KeyNotFoundException("Auditorija nerasta.");
+            ?? throw new KeyNotFoundException("Room not found.");
 
         var hasLectures = await _db.Lectures.AnyAsync(l => l.RoomId == id);
         if (hasLectures)
-            throw new InvalidOperationException("Negalima pašalinti auditorijos, kuri turi priskirtų paskaitų.");
+            throw new InvalidOperationException("Cannot delete a room that has lectures assigned.");
 
         _db.Rooms.Remove(room);
         await _db.SaveChangesAsync();

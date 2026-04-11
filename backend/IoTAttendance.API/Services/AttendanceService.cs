@@ -98,7 +98,7 @@ public class AttendanceService
     public async Task<AttendanceRecordDto> UpdateStatusAsync(Guid id, UpdateAttendanceRequest request, Guid overrideBy)
     {
         var record = await _db.AttendanceRecords.FindAsync(id)
-            ?? throw new KeyNotFoundException("Lankomumo įrašas nerastas.");
+            ?? throw new KeyNotFoundException("Attendance record not found.");
 
         record.Status = Enum.Parse<AttendanceStatus>(request.Status);
         record.IsManualOverride = true;
@@ -137,7 +137,7 @@ public class AttendanceService
             .Include(a => a.Student)
             .Include(a => a.Lecture)
             .FirstOrDefaultAsync(a => a.Id == id)
-            ?? throw new KeyNotFoundException("Lankomumo įrašas nerastas.");
+            ?? throw new KeyNotFoundException("Attendance record not found.");
         return MapToDto(record);
     }
 

@@ -10,7 +10,7 @@ export const authService = {
       await new Promise(resolve => setTimeout(resolve, 800));
       const user = mockUsers.find(u => u.email === email);
       if (user && password === 'password') return user;
-      throw new Error('Neteisingas el. pašto adresas arba slaptažodis');
+      throw new Error('Invalid email or password');
     }
 
     const response = await apiClient.post<AuthResponse>('/auth/login', { email, password });

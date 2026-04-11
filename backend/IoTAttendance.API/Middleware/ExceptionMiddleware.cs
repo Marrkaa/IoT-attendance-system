@@ -34,7 +34,7 @@ public class ExceptionMiddleware
             UnauthorizedAccessException => (HttpStatusCode.Unauthorized, exception.Message),
             KeyNotFoundException => (HttpStatusCode.NotFound, exception.Message),
             InvalidOperationException => (HttpStatusCode.BadRequest, exception.Message),
-            _ => (HttpStatusCode.InternalServerError, "Vidinė serverio klaida.")
+            _ => (HttpStatusCode.InternalServerError, "Internal server error.")
         };
 
         context.Response.ContentType = "application/json";

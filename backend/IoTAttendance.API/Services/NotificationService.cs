@@ -41,7 +41,7 @@ public class NotificationService
         // var message = new MailMessage
         // {
         //     From = new MailAddress("noreply@iot-attendance.lt"),
-        //     Subject = "Slaptažodžio atkūrimas - IoT Attendance",
+        //     Subject = "Password reset - IoT Attendance",
         //     Body = BuildResetEmailBody(resetLink),
         //     IsBodyHtml = true
         // };

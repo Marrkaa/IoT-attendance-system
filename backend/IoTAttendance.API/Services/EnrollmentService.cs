@@ -40,7 +40,7 @@ public class EnrollmentService
         var exists = await _db.Enrollments
             .AnyAsync(e => e.StudentId == request.StudentId && e.LectureId == request.LectureId);
         if (exists)
-            throw new InvalidOperationException("Studentas jau priskirtas šiai paskaitai.");
+            throw new InvalidOperationException("Student is already enrolled in this lecture.");
 
         var enrollment = new Enrollment
         {
@@ -57,7 +57,7 @@ public class EnrollmentService
     public async Task DeleteAsync(Guid id)
     {
         var enrollment = await _db.Enrollments.FindAsync(id)
-            ?? throw new KeyNotFoundException("Priskyrimas nerastas.");
+            ?? throw new KeyNotFoundException("Enrollment not found.");
         _db.Enrollments.Remove(enrollment);
         await _db.SaveChangesAsync();
     }
@@ -68,7 +68,7 @@ public class EnrollmentService
             .Include(e => e.Student)
             .Include(e => e.Lecture)
             .FirstOrDefaultAsync(e => e.Id == id)
-            ?? throw new KeyNotFoundException("Priskyrimas nerastas.");
+            ?? throw new KeyNotFoundException("Enrollment not found.");
         return MapToDto(enrollment);
     }
 

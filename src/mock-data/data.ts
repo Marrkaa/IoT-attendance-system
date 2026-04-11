@@ -139,7 +139,7 @@ export const mockAttendance: AttendanceRecord[] = [
   { id: 'a13', lectureId: 'l5', studentId: '10', status: 'Present', timestamp: makeTime(10, 55), signalStrength: -40, connectionDurationMinutes: 90, student: mockUsers[9], lecture: mockLectures[4] },
 ];
 
-/** IoT / Teltonika RUTX11 mazgai (hotspot + station dump integracija) */
+/** IoT / Teltonika RUTX11 nodes (hotspot + station dump integration) */
 export const mockIoTNodes: IoTNode[] = [
   {
     id: 'iot1',
@@ -185,7 +185,7 @@ export const mockIoTNodes: IoTNode[] = [
   },
 ];
 
-/** Studentų mobilūs įrenginiai (MAC susiejimas su lankomumu) */
+/** Student mobile devices (MAC linked to attendance) */
 export const mockStudentDevices: StudentDevice[] = [
   {
     id: 'sd1',
@@ -218,7 +218,7 @@ export const mockStudentDevices: StudentDevice[] = [
   },
 ];
 
-/** RADIUS paskyros (hotspot prisijungimui; sutampa su backend RadiusAccount) */
+/** RADIUS accounts (hotspot login; matches backend RadiusAccount) */
 export const mockRadiusAccounts: RadiusAccount[] = [
   { id: 'ra1', userId: '3', radiusUsername: 'student1@school.edu', isEnabled: true, createdAt: '2026-01-01T00:00:00Z' },
   { id: 'ra2', userId: '4', radiusUsername: 'student2@school.edu', isEnabled: true, createdAt: '2026-01-01T00:00:00Z' },
@@ -230,7 +230,7 @@ const mockConnectedClients: ConnectedClient[] = [
   { macAddress: 'AA:BB:CC:DD:EE:99', ipAddress: '192.168.50.43', hostname: 'android', signalStrengthDbm: -62, matchedStudentName: undefined, matchedStudentId: undefined },
 ];
 
-/** Demo routerio būsena (GET /api/iot-nodes/{id}/status) */
+/** Demo router status (GET /api/iot-nodes/{id}/status) */
 export function buildMockRouterStatus(ioTNodeId: string): RouterStatus {
   const node = mockIoTNodes.find((n) => n.id === ioTNodeId);
   return {

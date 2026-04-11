@@ -38,7 +38,7 @@ public class SessionCleanupService : BackgroundService
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogError(ex, "SessionCleanupService: klaida valant stale sesijas.");
+                _logger.LogError(ex, "SessionCleanupService: error while closing stale sessions.");
             }
         }
     }
@@ -68,6 +68,6 @@ public class SessionCleanupService : BackgroundService
         }
 
         await db.SaveChangesAsync(ct);
-        _logger.LogInformation("SessionCleanupService: uždaryta {count} stale sesijų.", staleSessions.Count);
+        _logger.LogInformation("SessionCleanupService: closed {count} stale session(s).", staleSessions.Count);
     }
 }
