@@ -75,6 +75,11 @@ public class StudentDeviceService
         await _db.SaveChangesAsync();
     }
 
+    public async Task<bool> IsOwnedByStudentAsync(Guid deviceId, Guid studentId)
+    {
+        return await _db.StudentDevices.AnyAsync(d => d.Id == deviceId && d.StudentId == studentId);
+    }
+
     /// <summary>
     /// Find which student a MAC address belongs to
     /// </summary>

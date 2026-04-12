@@ -2,6 +2,7 @@ using IoTAttendance.API.DTOs;
 using IoTAttendance.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace IoTAttendance.API.Controllers;
 
@@ -46,9 +47,21 @@ public class DevicesController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Administrator")]
+    [Authorize(Roles = "Administrator,Student")]
     public async Task<IActionResult> Delete(Guid id)
     {
+        var isAdmin = User.IsInRole("Administrator");
+        if (!isAdmin)
+        {
+            var studentIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(studentIdClaim) || !Guid.TryParse(studentIdClaim, out var studentId))
+                return Forbid();
+
+            var owned = await _deviceService.IsOwnedByStudentAsync(id, studentId);
+            if (!owned)
+                return Forbid();
+        }
+
         await _deviceService.DeleteAsync(id);
         return NoContent();
     }

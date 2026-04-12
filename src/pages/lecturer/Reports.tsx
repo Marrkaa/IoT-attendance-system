@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../store/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { Calendar, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { PageHeader, StatusBadge } from '../../components';
 import { apiClient } from '../../services/api';
 import { attendanceService } from '../../services/attendanceService';
@@ -138,6 +139,22 @@ export const ReportsPage = () => {
     URL.revokeObjectURL(url);
   };
 
+  const exportXlsx = () => {
+    const rows = records.map((r) => ({
+      Date: r.date ?? '',
+      Student: r.student ? `${r.student.firstName} ${r.student.lastName}` : r.studentId,
+      Email: r.student?.email ?? '',
+      Status: r.status,
+      'Check-in': r.checkInTime ? new Date(r.checkInTime).toLocaleTimeString('en-US') : '',
+      'Check-out': r.checkOutTime ? new Date(r.checkOutTime).toLocaleTimeString('en-US') : '',
+      'Duration (min)': r.connectionDurationMinutes != null ? Number(r.connectionDurationMinutes.toFixed(1)) : '',
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
+    XLSX.writeFile(workbook, `attendance_${selectedLecture?.title ?? 'report'}_${dateFrom}_${dateTo}.xlsx`);
+  };
+
   return (
     <div>
       <PageHeader
@@ -197,6 +214,9 @@ export const ReportsPage = () => {
 
           <button type="button" className="btn btn-outline" onClick={exportCsv} disabled={records.length === 0}>
             <Download size={14} /> Export CSV
+          </button>
+          <button type="button" className="btn btn-outline" onClick={exportXlsx} disabled={records.length === 0}>
+            <Download size={14} /> Export XLSX
           </button>
         </div>
       </div>

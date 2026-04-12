@@ -13,6 +13,12 @@ export function DeviceManagementTable({
   onToggleActive,
   onDelete,
 }: Props) {
+  const getDisplayDeviceName = (deviceName?: string | null) => {
+    if (!deviceName) return '—';
+    if (deviceName.trim().toLowerCase() === 'hotspot (radius)') return '—';
+    return deviceName;
+  };
+
   if (devices.length === 0) {
     return (
       <p style={{ color: 'var(--text-secondary)', padding: '1rem 0' }}>
@@ -38,7 +44,7 @@ export function DeviceManagementTable({
           {devices.map((d) => (
             <tr key={d.id}>
               <td style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.85rem' }}>{d.macAddress}</td>
-              <td>{d.deviceName ?? '—'}</td>
+              <td>{getDisplayDeviceName(d.deviceName)}</td>
               {showStudentColumn && <td>{d.studentName ?? d.studentId}</td>}
               <td>
                 <span className={`badge ${d.isActive ? 'badge-success' : ''}`} style={d.isActive ? undefined : { background: '#F3F4F6', color: '#6B7280' }}>
