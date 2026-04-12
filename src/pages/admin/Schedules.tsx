@@ -3,15 +3,20 @@
  * (API schedule DTO neturi įdėtos Lecture, kad išvengtų ciklų — todėl pavadinimai imami iš atskiros užklausos).
  * Galima pridėti slotą modale arba pašalinti slotą iš kortelės.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Calendar, Clock, MapPin, Trash2 } from 'lucide-react';
 import { PageHeader, Modal } from '../../components';
 import { scheduleService } from '../../services/scheduleService';
 import { lectureService } from '../../services/lectureService';
 import type { Schedule, Lecture } from '../../types';
 
-const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const hours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
+const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const timeSlots = [
+  { start: '09:00', end: '10:30', label: '09:00 - 10:30' },
+  { start: '11:00', end: '12:30', label: '11:00 - 12:30' },
+  { start: '13:30', end: '15:00', label: '13:30 - 15:00' },
+  { start: '15:30', end: '17:00', label: '15:30 - 17:00' },
+];
 
 const lectureColors = [
   { bg: '#EEF2FF', border: 'var(--primary)', text: 'var(--primary)' },
@@ -28,7 +33,7 @@ export const SchedulesPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ lectureId: '', dayOfWeek: 0, startTime: '10:00', endTime: '11:30' });
+  const [form, setForm] = useState({ lectureId: '', dayOfWeek: 0, startTime: '09:00', endTime: '10:30' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,11 +55,20 @@ export const SchedulesPage = () => {
 
   const lectureById = (id: string) => lectures.find((l) => l.id === id);
 
-  const getScheduleForSlot = (dayIndex: number, hour: string) =>
+  const toMinutes = (time: string): number => {
+    const [h, m] = time.split(':').map((v) => parseInt(v, 10));
+    return h * 60 + m;
+  };
+
+  const getScheduleForSlot = (dayIndex: number, slotStart: string, slotEnd: string) =>
     schedules.filter((s) => {
-      const startHour = parseInt(s.startTime.split(':')[0], 10);
-      const slotHour = parseInt(hour.split(':')[0], 10);
-      return s.dayOfWeek === dayIndex && startHour === slotHour;
+      if (s.dayOfWeek !== dayIndex) return false;
+      const scheduleStart = toMinutes(s.startTime);
+      const scheduleEnd = toMinutes(s.endTime);
+      const gridStart = toMinutes(slotStart);
+      const gridEnd = toMinutes(slotEnd);
+      // Show entry in slot if there is any overlap.
+      return scheduleStart < gridEnd && scheduleEnd > gridStart;
     });
 
   const getLectureColorIndex = (lectureId: string): number => {
@@ -118,13 +132,24 @@ export const SchedulesPage = () => {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '80px repeat(5, 1fr)',
-              gap: '1px',
-              background: 'var(--border)',
-              minWidth: '700px',
+              gridTemplateColumns: `80px repeat(${days.length}, 1fr)`,
+              gridAutoRows: '72px',
+              border: '1px solid var(--border)',
+              minWidth: '980px',
             }}
           >
-            <div style={{ background: 'var(--bg-card)', padding: '0.75rem', fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-muted)' }} />
+            <div
+              style={{
+                background: 'var(--bg-card)',
+                padding: '0.75rem',
+                fontWeight: 600,
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                borderRight: '1px solid var(--border)',
+                borderBottom: '1px solid var(--border)',
+                boxSizing: 'border-box',
+              }}
+            />
             {days.map((day) => (
               <div
                 key={day}
@@ -135,14 +160,17 @@ export const SchedulesPage = () => {
                   fontSize: '0.875rem',
                   textAlign: 'center',
                   color: 'var(--text-primary)',
+                  borderRight: '1px solid var(--border)',
+                  borderBottom: '1px solid var(--border)',
+                  boxSizing: 'border-box',
                 }}
               >
                 {day}
               </div>
             ))}
 
-            {hours.map((hour) => (
-              <div key={hour} style={{ display: 'contents' }}>
+            {timeSlots.map((slot) => (
+              <Fragment key={slot.label}>
                 <div
                   style={{
                     background: 'var(--bg-card)',
@@ -150,15 +178,30 @@ export const SchedulesPage = () => {
                     fontSize: '0.75rem',
                     color: 'var(--text-muted)',
                     display: 'flex',
-                    alignItems: 'flex-start',
+                    alignItems: 'center',
+                    minHeight: '72px',
+                    lineHeight: 1.2,
+                    boxSizing: 'border-box',
+                    borderRight: '1px solid var(--border)',
+                    borderBottom: '1px solid var(--border)',
                   }}
                 >
-                  {hour}
+                  {slot.label}
                 </div>
                 {days.map((day, dayIndex) => {
-                  const slotSchedules = getScheduleForSlot(dayIndex, hour);
+                  const slotSchedules = getScheduleForSlot(dayIndex, slot.start, slot.end);
                   return (
-                    <div key={`${day}-${hour}`} style={{ background: 'var(--bg-card)', padding: '0.5rem', minHeight: '60px' }}>
+                    <div
+                      key={`${day}-${slot.label}`}
+                      style={{
+                        background: 'var(--bg-card)',
+                        padding: '0.5rem',
+                        minHeight: '60px',
+                        borderRight: '1px solid var(--border)',
+                        borderBottom: '1px solid var(--border)',
+                        boxSizing: 'border-box',
+                      }}
+                    >
                       {slotSchedules.map((schedule) => {
                         const lec = lectureById(schedule.lectureId);
                         const colorIdx = getLectureColorIndex(schedule.lectureId);
@@ -199,7 +242,7 @@ export const SchedulesPage = () => {
                     </div>
                   );
                 })}
-              </div>
+              </Fragment>
             ))}
           </div>
         </div>

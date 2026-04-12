@@ -15,7 +15,22 @@ export const LecturerDashboard = () => {
   const [todayRecords, setTodayRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const weekdayToIndex = (d: string): number => {
+    // JS: Sun=0..Sat=6; backend schedules: Mon=0..Sun=6
+    const js = new Date(`${d}T00:00:00`).getDay();
+    return (js + 6) % 7;
+  };
+
+  const isLectureOnDate = (lecture: Lecture, date: string): boolean => {
+    if (!lecture.schedules || lecture.schedules.length === 0) return false;
+    const dayIndex = weekdayToIndex(date);
+    return lecture.schedules.some((s) => {
+      if (s.dayOfWeek !== dayIndex) return false;
+      if (s.validFrom && s.validFrom > date) return false;
+      if (s.validUntil && s.validUntil < date) return false;
+      return true;
+    });
+  };
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -23,11 +38,13 @@ export const LecturerDashboard = () => {
     try {
       const list = await apiClient.get<Lecture[]>(`/lectures?lecturerId=${user.id}`);
       setLectures(list);
+      const serverDate = await attendanceService.getServerDate();
+      const lecturesToday = list.filter((l) => isLectureOnDate(l, serverDate));
 
       const allRecords: AttendanceRecord[] = [];
-      for (const l of list) {
+      for (const l of lecturesToday) {
         try {
-          const recs = await attendanceService.getByLecture(l.id, today);
+          const recs = await attendanceService.getByLecture(l.id, serverDate);
           allRecords.push(...recs);
         } catch {
           /* no records for today yet */
@@ -39,7 +56,7 @@ export const LecturerDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, today]);
+  }, [user?.id]);
 
   useEffect(() => {
     void load();

@@ -10,17 +10,19 @@ public class AttendanceService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<AttendanceService> _logger;
+    private readonly IAppTimeProvider _time;
 
-    public AttendanceService(AppDbContext db, ILogger<AttendanceService> logger)
+    public AttendanceService(AppDbContext db, ILogger<AttendanceService> logger, IAppTimeProvider time)
     {
         _db = db;
         _logger = logger;
+        _time = time;
     }
 
     public async Task<List<AttendanceRecordDto>> GetByLectureAsync(Guid lectureId, string? date = null)
     {
         // Auto-create attendance records from RADIUS hotspot sessions
-        var targetDate = date != null ? DateOnly.Parse(date) : DateOnly.FromDateTime(DateTime.UtcNow);
+        var targetDate = date != null ? DateOnly.Parse(date) : _time.LocalToday;
         await MaterializeFromSessionsAsync(lectureId, targetDate);
 
         var query = _db.AttendanceRecords
@@ -37,7 +39,7 @@ public class AttendanceService
 
     public async Task<List<AttendanceRecordDto>> GetByStudentAsync(Guid studentId, Guid? lectureId = null)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = _time.LocalToday;
         var enrolledLectureIds = await _db.Enrollments
             .Where(e => e.StudentId == studentId)
             .Select(e => e.LectureId)
@@ -60,7 +62,7 @@ public class AttendanceService
 
     public async Task<AttendanceStatsDto> GetStatsAsync(Guid studentId, Guid? lectureId = null)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = _time.LocalToday;
         var enrolledLectureIds = await _db.Enrollments
             .Where(e => e.StudentId == studentId)
             .Select(e => e.LectureId)
@@ -99,7 +101,7 @@ public class AttendanceService
             existing.IsManualOverride = true;
             existing.OverrideBy = overrideBy;
             existing.OverrideReason = request.Reason;
-            existing.UpdatedAt = DateTime.UtcNow;
+            existing.UpdatedAt = _time.UtcNow;
         }
         else
         {
@@ -113,7 +115,7 @@ public class AttendanceService
                 IsManualOverride = true,
                 OverrideBy = overrideBy,
                 OverrideReason = request.Reason,
-                CheckInTime = DateTime.UtcNow
+                CheckInTime = _time.UtcNow
             };
             _db.AttendanceRecords.Add(existing);
         }
@@ -131,7 +133,7 @@ public class AttendanceService
         record.IsManualOverride = true;
         record.OverrideBy = overrideBy;
         record.OverrideReason = request.Reason;
-        record.UpdatedAt = DateTime.UtcNow;
+        record.UpdatedAt = _time.UtcNow;
 
         await _db.SaveChangesAsync();
         return await GetByIdAsync(id);
@@ -143,7 +145,7 @@ public class AttendanceService
         var start = DateOnly.Parse(startDate);
         var end = DateOnly.Parse(endDate);
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = _time.LocalToday;
         for (var d = start; d <= end && d <= today; d = d.AddDays(1))
             await MaterializeFromSessionsAsync(lectureId, d);
 
@@ -172,6 +174,8 @@ public class AttendanceService
         {
             var lecture = await _db.Lectures.FindAsync(lectureId);
             if (lecture == null) return;
+            var now = _time.UtcNow;
+            var staleWindow = TimeSpan.FromMinutes(2);
 
             var enrolledStudentIds = await _db.Enrollments
                 .Where(e => e.LectureId == lectureId)
@@ -180,52 +184,136 @@ public class AttendanceService
 
             if (enrolledStudentIds.Count == 0) return;
 
-            var dayStart = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-            var dayEnd = date.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
+            var dayStartUtc = _time.ToUtc(date, TimeOnly.MinValue);
+            var dayEndUtc = _time.ToUtc(date.AddDays(1), TimeOnly.MinValue).AddTicks(-1);
 
             var sessions = await _db.HotspotSessions
                 .Where(s =>
                     enrolledStudentIds.Contains(s.StudentId) &&
-                    s.StartTime >= dayStart && s.StartTime <= dayEnd)
+                    s.StartTime <= dayEndUtc &&
+                    ((s.EndTime ?? now) >= dayStartUtc))
                 .ToListAsync();
 
             if (sessions.Count == 0)
             {
                 _logger.LogDebug("MaterializeFromSessions: No hotspot sessions found for lecture {LectureId} on {Date}. " +
                     "EnrolledStudents={Count}, DayRange={Start}..{End}",
-                    lectureId, date, enrolledStudentIds.Count, dayStart, dayEnd);
+                    lectureId, date, enrolledStudentIds.Count, dayStartUtc, dayEndUtc);
                 return;
             }
 
-            // Find schedule for this day (optional — sessions may occur outside scheduled time)
-            var dayOfWeek = ((int)dayStart.DayOfWeek + 6) % 7; // 0=Monday
-            var schedule = await _db.Schedules
-                .Where(s => s.LectureId == lectureId && s.DayOfWeek == dayOfWeek)
-                .FirstOrDefaultAsync();
+            // Attendance can be materialized only for actual lecture slots on that day.
+            var dayOfWeek = ((int)date.DayOfWeek + 6) % 7; // 0=Monday
+            var scheduleSlots = await _db.Schedules
+                .Where(s =>
+                    s.LectureId == lectureId &&
+                    s.DayOfWeek == dayOfWeek &&
+                    (!s.ValidFrom.HasValue || s.ValidFrom.Value <= date) &&
+                    (!s.ValidUntil.HasValue || s.ValidUntil.Value >= date))
+                .OrderBy(s => s.StartTime)
+                .ToListAsync();
 
-            // Group sessions by student — one attendance record per student per day
+            if (scheduleSlots.Count == 0)
+            {
+                _logger.LogDebug(
+                    "MaterializeFromSessions: No schedule slots for lecture {LectureId} on {Date} (weekday {Weekday})",
+                    lectureId, date, dayOfWeek);
+                return;
+            }
+
+            var firstSlotStartUtc = scheduleSlots
+                .Select(s => _time.ToUtc(date, s.StartTime))
+                .Min();
+            var lastSlotEndUtc = scheduleSlots
+                .Select(s => _time.ToUtc(date, s.EndTime))
+                .Max();
+            var totalLectureMinutes = scheduleSlots
+                .Sum(s => (_time.ToUtc(date, s.EndTime) - _time.ToUtc(date, s.StartTime)).TotalMinutes);
+            if (totalLectureMinutes <= 0)
+                totalLectureMinutes = 1;
+            var minPresentMinutes = totalLectureMinutes / 2.0;
+            var canFinalizeAbsence = date < _time.LocalToday || (date == _time.LocalToday && now >= lastSlotEndUtc);
+
+            // Group sessions by student — one attendance record per student per lecture/day
             var changed = false;
             var grouped = sessions.GroupBy(s => s.StudentId);
+            var seenStudents = new HashSet<Guid>();
 
             foreach (var group in grouped)
             {
                 var studentId = group.Key;
+                seenStudents.Add(studentId);
 
-                var earliest = group.OrderBy(s => s.StartTime).First();
-                var latest = group.OrderByDescending(s => s.EndTime ?? DateTime.MaxValue).First();
-                var totalDuration = group.Sum(s =>
-                    s.DurationMinutes
-                    ?? (s.EndTime.HasValue
-                        ? (s.EndTime.Value - s.StartTime).TotalMinutes
-                        : (DateTime.UtcNow - s.StartTime).TotalMinutes));
+                // Keep only the overlap with scheduled lecture windows.
+                double totalDuration = 0;
+                DateTime? firstOverlap = null;
+                DateTime? lastOverlap = null;
+                DateTime? firstSlotStart = null;
+
+                foreach (var session in group)
+                {
+                    var sessionStart = session.StartTime < dayStartUtc ? dayStartUtc : session.StartTime;
+                    DateTime sessionEndRaw;
+                    if (session.EndTime.HasValue)
+                    {
+                        sessionEndRaw = session.EndTime.Value;
+                    }
+                    else
+                    {
+                        var lastSeen = session.LastAccountingAt ?? session.StartTime;
+                        var isFreshActive = date == _time.LocalToday &&
+                            session.IsActive &&
+                            lastSeen >= now.Subtract(staleWindow);
+
+                        if (isFreshActive)
+                        {
+                            // While session is currently active and fresh, let duration grow in real-time.
+                            sessionEndRaw = now;
+                        }
+                        else
+                        {
+                            // If updates stopped, avoid phantom growth beyond a short grace window.
+                            var capped = lastSeen.Add(staleWindow);
+                            sessionEndRaw = capped < dayEndUtc ? capped : dayEndUtc;
+                        }
+                    }
+                    var sessionEnd = sessionEndRaw > dayEndUtc ? dayEndUtc : sessionEndRaw;
+                    if (sessionEnd <= sessionStart) continue;
+
+                    foreach (var slot in scheduleSlots)
+                    {
+                        var slotStart = _time.ToUtc(date, slot.StartTime);
+                        var slotEnd = _time.ToUtc(date, slot.EndTime);
+
+                        var overlapStart = sessionStart > slotStart ? sessionStart : slotStart;
+                        var overlapEnd = sessionEnd < slotEnd ? sessionEnd : slotEnd;
+                        if (overlapEnd <= overlapStart) continue;
+
+                        totalDuration += (overlapEnd - overlapStart).TotalMinutes;
+
+                        if (!firstOverlap.HasValue || overlapStart < firstOverlap.Value)
+                            firstOverlap = overlapStart;
+                        if (!lastOverlap.HasValue || overlapEnd > lastOverlap.Value)
+                            lastOverlap = overlapEnd;
+                        if (!firstSlotStart.HasValue || slotStart < firstSlotStart.Value)
+                            firstSlotStart = slotStart;
+                    }
+                }
+
+                if (totalDuration <= 0 || !firstOverlap.HasValue)
+                    continue;
+
                 var avgSignal = group.Where(s => s.AvgSignalDbm.HasValue)
                     .Select(s => s.AvgSignalDbm!.Value).DefaultIfEmpty(0).Average();
 
                 var status = AttendanceStatus.Present;
-                if (schedule != null)
+                if (totalDuration < minPresentMinutes)
                 {
-                    var firstConnectTime = TimeOnly.FromDateTime(earliest.StartTime);
-                    var minutesLate = (firstConnectTime - schedule.StartTime).TotalMinutes;
+                    status = AttendanceStatus.Absent;
+                }
+                else if (firstSlotStart.HasValue)
+                {
+                    var minutesLate = (firstOverlap.Value - firstSlotStart.Value).TotalMinutes;
                     if (minutesLate > 10) status = AttendanceStatus.Late;
                 }
 
@@ -240,10 +328,12 @@ public class AttendanceService
                     // Update with latest session data (don't touch manually overridden records)
                     if (!existing.IsManualOverride)
                     {
-                        existing.CheckOutTime = latest.EndTime;
+                        existing.CheckInTime = firstOverlap.Value;
+                        existing.CheckOutTime = lastOverlap;
                         existing.ConnectionDurationMinutes = totalDuration;
                         existing.AvgSignalStrengthDbm = avgSignal;
-                        existing.UpdatedAt = DateTime.UtcNow;
+                        existing.Status = status;
+                        existing.UpdatedAt = _time.UtcNow;
                         changed = true;
                     }
                 }
@@ -253,14 +343,56 @@ public class AttendanceService
                     {
                         LectureId = lectureId,
                         StudentId = studentId,
-                        ScheduleId = schedule?.Id,
+                        ScheduleId = scheduleSlots[0].Id,
                         Date = date,
                         Status = status,
-                        CheckInTime = earliest.StartTime,
-                        CheckOutTime = latest.EndTime,
-                        SignalStrengthDbm = earliest.InitialSignalDbm,
+                        CheckInTime = firstOverlap.Value,
+                        CheckOutTime = lastOverlap,
+                        SignalStrengthDbm = (int)Math.Round(avgSignal),
                         AvgSignalStrengthDbm = avgSignal,
                         ConnectionDurationMinutes = totalDuration
+                    });
+                    changed = true;
+                }
+            }
+
+            // Finalize students with no overlap as absent after lecture window is over.
+            if (canFinalizeAbsence)
+            {
+                foreach (var studentId in enrolledStudentIds)
+                {
+                    if (seenStudents.Contains(studentId))
+                        continue;
+
+                    var existing = await _db.AttendanceRecords
+                        .FirstOrDefaultAsync(a =>
+                            a.StudentId == studentId &&
+                            a.LectureId == lectureId &&
+                            a.Date == date);
+
+                    if (existing != null)
+                    {
+                        if (!existing.IsManualOverride &&
+                            (existing.Status != AttendanceStatus.Absent || (existing.ConnectionDurationMinutes ?? 0) > 0))
+                        {
+                            existing.Status = AttendanceStatus.Absent;
+                            existing.ConnectionDurationMinutes = 0;
+                            existing.CheckInTime = null;
+                            existing.CheckOutTime = null;
+                            existing.UpdatedAt = _time.UtcNow;
+                            changed = true;
+                        }
+                        continue;
+                    }
+
+                    _db.AttendanceRecords.Add(new AttendanceRecord
+                    {
+                        LectureId = lectureId,
+                        StudentId = studentId,
+                        ScheduleId = scheduleSlots[0].Id,
+                        Date = date,
+                        Status = AttendanceStatus.Absent,
+                        ConnectionDurationMinutes = 0
                     });
                     changed = true;
                 }

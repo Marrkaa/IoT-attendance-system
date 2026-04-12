@@ -14,15 +14,18 @@ public class RouterPollingService
     private readonly AppDbContext _db;
     private readonly StudentDeviceService _deviceService;
     private readonly SignalProcessingService _signalService;
+    private readonly IAppTimeProvider _time;
 
     public RouterPollingService(
         AppDbContext db,
         StudentDeviceService deviceService,
-        SignalProcessingService signalService)
+        SignalProcessingService signalService,
+        IAppTimeProvider time)
     {
         _db = db;
         _deviceService = deviceService;
         _signalService = signalService;
+        _time = time;
     }
 
     /// <summary>
@@ -33,10 +36,11 @@ public class RouterPollingService
     {
         var node = await _db.IoTNodes.FindAsync(request.IoTNodeId)
             ?? throw new KeyNotFoundException("IoT node not found.");
+        var eventTimestamp = _time.IsFakeTimeEnabled ? _time.UtcNow : request.Timestamp;
 
         // Update node status
         node.Status = IoTNodeStatus.Online;
-        node.LastSeen = request.Timestamp;
+        node.LastSeen = eventTimestamp;
 
         foreach (var station in request.Stations)
         {
@@ -49,7 +53,7 @@ public class RouterPollingService
                 ClientHostname = station.Hostname,
                 SignalStrengthDbm = station.SignalStrengthDbm,
                 EventType = ConnectionEventType.SignalUpdate,
-                Timestamp = request.Timestamp,
+                Timestamp = eventTimestamp,
                 WifiInterface = station.Interface
             };
             _db.WifiConnectionLogs.Add(log);
@@ -58,12 +62,12 @@ public class RouterPollingService
             var device = await _deviceService.FindByMacAsync(station.MacAddress);
             if (device != null)
             {
-                device.LastSeen = request.Timestamp;
+                device.LastSeen = eventTimestamp;
                 await _signalService.ProcessSignalDataAsync(
                     device.StudentId,
                     node,
                     station.SignalStrengthDbm,
-                    request.Timestamp);
+                    eventTimestamp);
             }
         }
 
@@ -79,7 +83,7 @@ public class RouterPollingService
             ?? throw new KeyNotFoundException("IoT node not found.");
 
         // Get latest connection logs (last 5 minutes)
-        var cutoff = DateTime.UtcNow.AddMinutes(-5);
+        var cutoff = _time.UtcNow.AddMinutes(-5);
         var recentLogs = await _db.WifiConnectionLogs
             .Where(w => w.IoTNodeId == iotNodeId && w.Timestamp > cutoff)
             .GroupBy(w => w.ClientMacAddress)
@@ -116,15 +120,27 @@ public class RouterPollingService
     {
         var lecture = await _db.Lectures
             .Include(l => l.Room).ThenInclude(r => r!.IoTNode)
+            .Include(l => l.Schedules)
             .Include(l => l.Enrollments).ThenInclude(e => e.Student)
                 .ThenInclude(s => s.StudentDevices)
             .FirstOrDefaultAsync(l => l.Id == lectureId)
             ?? throw new KeyNotFoundException("Lecture not found.");
 
         var iotNode = lecture.Room?.IoTNode;
+        var localNow = _time.LocalNow;
+        var localToday = DateOnly.FromDateTime(localNow);
+        var localTime = TimeOnly.FromDateTime(localNow);
+        var localDayOfWeek = ((int)localNow.DayOfWeek + 6) % 7; // 0=Monday
+        var lectureIsNow = lecture.Schedules.Any(s =>
+            s.DayOfWeek == localDayOfWeek &&
+            (!s.ValidFrom.HasValue || s.ValidFrom.Value <= localToday) &&
+            (!s.ValidUntil.HasValue || s.ValidUntil.Value >= localToday) &&
+            s.StartTime <= localTime &&
+            s.EndTime >= localTime);
+
         // Last RADIUS accounting (or Start): without new packets the session is treated as stale for the UI after this window.
         // Station dump (Wi‑Fi) only sees L2 association — can appear before captive portal and linger after disconnect.
-        var liveEvidenceCutoff = DateTime.UtcNow.AddMinutes(-2);
+        var liveEvidenceCutoff = _time.UtcNow.AddMinutes(-2);
 
         var result = new List<LiveAttendanceDto>();
 
@@ -136,9 +152,9 @@ public class RouterPollingService
                 .Select(d => d.MacAddress)
                 .ToList();
 
-            var todayUtc = DateTime.UtcNow.Date;
+            var todayUtc = _time.ToUtc(_time.LocalToday, TimeOnly.MinValue);
             HotspotSession? radiusSession = null;
-            if (iotNode != null)
+            if (iotNode != null && lectureIsNow)
             {
                 radiusSession = await _db.HotspotSessions
                     .Where(h =>
@@ -170,7 +186,8 @@ public class RouterPollingService
             // Presence from RADIUS only; station dump no longer marks “connected” without accounting.
             var isConnected = radiusConnected;
 
-            var deviceMac = activeMacs.FirstOrDefault() ?? radiusSession?.DeviceMac;
+            // Prefer the MAC from the active RADIUS session (real currently authenticated device).
+            var deviceMac = radiusSession?.DeviceMac ?? activeMacs.FirstOrDefault();
 
             // Since / duration from RADIUS session (not first Wi‑Fi log of the day).
             DateTime? connectedSince = null;
@@ -180,7 +197,7 @@ public class RouterPollingService
                 connectedSince = radiusSession.StartTime;
                 connectionMinutes = radiusSession.DurationMinutes.HasValue && radiusSession.DurationMinutes > 0
                     ? radiusSession.DurationMinutes
-                    : (DateTime.UtcNow - radiusSession.StartTime).TotalMinutes;
+                    : (_time.UtcNow - radiusSession.StartTime).TotalMinutes;
             }
 
             result.Add(new LiveAttendanceDto(

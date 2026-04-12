@@ -14,15 +14,24 @@ public class AttendanceController : ControllerBase
     private readonly AttendanceService _attendanceService;
     private readonly RouterPollingService _routerService;
     private readonly SignalProcessingService _signalService;
+    private readonly IAppTimeProvider _time;
 
     public AttendanceController(
         AttendanceService attendanceService,
         RouterPollingService routerService,
-        SignalProcessingService signalService)
+        SignalProcessingService signalService,
+        IAppTimeProvider time)
     {
         _attendanceService = attendanceService;
         _routerService = routerService;
         _signalService = signalService;
+        _time = time;
+    }
+
+    [HttpGet("server-date")]
+    public IActionResult GetServerDate()
+    {
+        return Ok(new { date = _time.LocalToday.ToString("yyyy-MM-dd") });
     }
 
     [HttpGet("lecture/{lectureId}")]

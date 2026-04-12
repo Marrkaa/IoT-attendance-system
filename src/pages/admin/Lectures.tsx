@@ -36,7 +36,16 @@ export const LecturesPage = () => {
   });
 
   const [editLecture, setEditLecture] = useState<Lecture | null>(null);
-  const [editForm, setEditForm] = useState({ title: '', description: '', lecturerId: '', roomId: '' });
+  const [editScheduleId, setEditScheduleId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    lecturerId: '',
+    roomId: '',
+    dayOfWeek: 0,
+    startTime: '10:00',
+    endTime: '11:30',
+  });
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignLectureId, setAssignLectureId] = useState<string | null>(null);
@@ -148,13 +157,27 @@ export const LecturesPage = () => {
     }
   };
 
-  const openEdit = (l: Lecture) => {
+  const openEdit = async (l: Lecture) => {
+    let firstSlot = l.schedules?.[0];
+    if (!firstSlot) {
+      try {
+        const slots = await scheduleService.getAll(l.id);
+        firstSlot = slots[0];
+      } catch {
+        firstSlot = undefined;
+      }
+    }
+
     setEditLecture(l);
+    setEditScheduleId(firstSlot?.id ?? null);
     setEditForm({
       title: l.title,
       description: l.description ?? '',
       lecturerId: l.lecturerId,
       roomId: l.roomId,
+      dayOfWeek: firstSlot?.dayOfWeek ?? 0,
+      startTime: firstSlot?.startTime ?? l.startTime ?? '10:00',
+      endTime: firstSlot?.endTime ?? l.endTime ?? '11:30',
     });
   };
 
@@ -169,7 +192,22 @@ export const LecturesPage = () => {
         lecturerId: editForm.lecturerId,
         roomId: editForm.roomId,
       });
+      if (editScheduleId) {
+        await scheduleService.update(editScheduleId, {
+          dayOfWeek: editForm.dayOfWeek,
+          startTime: editForm.startTime,
+          endTime: editForm.endTime,
+        });
+      } else {
+        await scheduleService.create({
+          lectureId: editLecture.id,
+          dayOfWeek: editForm.dayOfWeek,
+          startTime: editForm.startTime,
+          endTime: editForm.endTime,
+        });
+      }
       setEditLecture(null);
+      setEditScheduleId(null);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Update failed');
@@ -260,7 +298,7 @@ export const LecturesPage = () => {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button type="button" className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem' }} onClick={() => openEdit(l)}>
+                        <button type="button" className="btn btn-outline" style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem' }} onClick={() => void openEdit(l)}>
                           Edit
                         </button>
                         <button type="button" className="btn btn-primary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem' }} onClick={() => void openAssign(l.id)}>
@@ -404,6 +442,40 @@ export const LecturesPage = () => {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Day</label>
+              <select
+                className="form-input"
+                value={editForm.dayOfWeek}
+                onChange={(e) => setEditForm((f) => ({ ...f, dayOfWeek: parseInt(e.target.value, 10) }))}
+              >
+                {WEEKDAYS.map((d, i) => (
+                  <option key={d} value={i}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Start</label>
+              <input
+                type="time"
+                className="form-input"
+                value={editForm.startTime}
+                onChange={(e) => setEditForm((f) => ({ ...f, startTime: e.target.value }))}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">End</label>
+              <input
+                type="time"
+                className="form-input"
+                value={editForm.endTime}
+                onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))}
+              />
             </div>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>

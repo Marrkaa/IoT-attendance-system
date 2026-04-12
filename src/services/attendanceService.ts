@@ -5,6 +5,11 @@ import type { AttendanceRecord, AttendanceStats, LiveAttendanceData, DailyAttend
 import { apiClient } from './api';
 
 export const attendanceService = {
+  getServerDate: async (): Promise<string> => {
+    const res = await apiClient.get<{ date: string }>('/attendance/server-date');
+    return res.date;
+  },
+
   getByLecture: async (lectureId: string, date?: string): Promise<AttendanceRecord[]> => {
     const params = date ? `?date=${date}` : '';
     return apiClient.get<AttendanceRecord[]>(`/attendance/lecture/${lectureId}${params}`);

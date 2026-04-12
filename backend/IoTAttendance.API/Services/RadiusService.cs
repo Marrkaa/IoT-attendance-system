@@ -12,12 +12,18 @@ public class RadiusService
     private readonly AppDbContext _db;
     private readonly StudentDeviceService _studentDevices;
     private readonly IConfiguration _config;
+    private readonly IAppTimeProvider _time;
 
-    public RadiusService(AppDbContext db, StudentDeviceService studentDevices, IConfiguration config)
+    public RadiusService(
+        AppDbContext db,
+        StudentDeviceService studentDevices,
+        IConfiguration config,
+        IAppTimeProvider time)
     {
         _db = db;
         _studentDevices = studentDevices;
         _config = config;
+        _time = time;
     }
 
     public async Task<bool> ValidateCredentialsAsync(string username, string password)
@@ -56,7 +62,7 @@ public class RadiusService
             ?? throw new KeyNotFoundException("RADIUS account not found.");
 
         account.RadiusPasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
-        account.UpdatedAt = DateTime.UtcNow;
+        account.UpdatedAt = _time.UtcNow;
         await _db.SaveChangesAsync();
     }
 
@@ -66,7 +72,7 @@ public class RadiusService
             ?? throw new KeyNotFoundException("RADIUS account not found.");
 
         account.IsEnabled = enabled;
-        account.UpdatedAt = DateTime.UtcNow;
+        account.UpdatedAt = _time.UtcNow;
         await _db.SaveChangesAsync();
     }
 
@@ -104,7 +110,7 @@ public class RadiusService
 
         var iotNodeId = await ResolveDefaultIoTNodeIdAsync();
         var sessionSeconds = ParseUnsignedInt(acctSessionTime);
-        var now = DateTime.UtcNow;
+        var now = _time.UtcNow;
         var mac = StudentDeviceService.TryNormalizeMacAddress(callingStationId);
 
         switch (status.Value)

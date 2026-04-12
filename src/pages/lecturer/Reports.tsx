@@ -5,7 +5,6 @@ import { Calendar, Download } from 'lucide-react';
 import { PageHeader, StatusBadge } from '../../components';
 import { apiClient } from '../../services/api';
 import { attendanceService } from '../../services/attendanceService';
-import { formatClock } from '../../utils';
 import type { Lecture, AttendanceRecord, DailyAttendanceSummary } from '../../types';
 
 function mondayOfWeek(d: Date): string {
@@ -101,6 +100,14 @@ export const ReportsPage = () => {
     void fetchReport();
   }, [fetchReport]);
 
+  useEffect(() => {
+    if (!selectedLectureId) return;
+    const id = window.setInterval(() => {
+      void fetchReport();
+    }, 10000);
+    return () => window.clearInterval(id);
+  }, [selectedLectureId, fetchReport]);
+
   const present = records.filter((r) => r.status === 'Present').length;
   const late = records.filter((r) => r.status === 'Late').length;
   const absent = records.filter((r) => r.status === 'Absent').length;
@@ -110,7 +117,7 @@ export const ReportsPage = () => {
   const selectedLecture = lectures.find((l) => l.id === selectedLectureId);
 
   const exportCsv = () => {
-    const header = 'Date,Student,Email,Status,Check-in,Check-out,Duration (min),Signal (dBm)\n';
+    const header = 'Date,Student,Email,Status,Check-in,Check-out,Duration (min)\n';
     const rows = records.map((r) =>
       [
         r.date,
@@ -120,7 +127,6 @@ export const ReportsPage = () => {
         r.checkInTime ? new Date(r.checkInTime).toLocaleTimeString('en-US') : '',
         r.checkOutTime ? new Date(r.checkOutTime).toLocaleTimeString('en-US') : '',
         r.connectionDurationMinutes?.toFixed(1) ?? '',
-        r.avgSignalStrengthDbm ?? r.signalStrengthDbm ?? '',
       ].join(',')
     ).join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv' });
@@ -285,7 +291,6 @@ export const ReportsPage = () => {
                   <th>Status</th>
                   <th>Check-in</th>
                   <th>Duration</th>
-                  <th>Signal</th>
                 </tr>
               </thead>
               <tbody>
@@ -302,13 +307,6 @@ export const ReportsPage = () => {
                     </td>
                     <td style={{ fontSize: '0.875rem' }}>
                       {r.connectionDurationMinutes != null ? `${r.connectionDurationMinutes.toFixed(1)} min` : '—'}
-                    </td>
-                    <td style={{ fontSize: '0.875rem' }}>
-                      {r.avgSignalStrengthDbm != null
-                        ? `${r.avgSignalStrengthDbm.toFixed(0)} dBm`
-                        : r.signalStrengthDbm != null
-                          ? `${r.signalStrengthDbm} dBm`
-                          : '—'}
                     </td>
                   </tr>
                 ))}

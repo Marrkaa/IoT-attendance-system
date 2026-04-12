@@ -73,6 +73,14 @@ public class LectureService
     {
         var lecture = await _db.Lectures.FindAsync(id)
             ?? throw new KeyNotFoundException("Lecture not found.");
+
+        // attendance_records has FK restrict to lectures, so remove related history first
+        var attendanceRecords = await _db.AttendanceRecords
+            .Where(a => a.LectureId == id)
+            .ToListAsync();
+        if (attendanceRecords.Count > 0)
+            _db.AttendanceRecords.RemoveRange(attendanceRecords);
+
         _db.Lectures.Remove(lecture);
         await _db.SaveChangesAsync();
     }
