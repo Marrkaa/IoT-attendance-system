@@ -4,6 +4,7 @@ import { Calendar, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { PageHeader, StatCard, StatusBadge } from '../../components';
 import { attendanceService } from '../../services/attendanceService';
 import { apiClient } from '../../services/api';
+import { lectureService } from '../../services/lectureService';
 import { formatTime, formatClock } from '../../utils';
 import type { AttendanceRecord, AttendanceStats, Lecture, Enrollment } from '../../types';
 
@@ -26,7 +27,7 @@ export const StudentDashboard = () => {
       setStats(st);
       setRecent(recs.slice(0, 10));
       const lectureIds = enrollments.map((e) => e.lectureId);
-      const lectures = await apiClient.get<Lecture[]>('/lectures');
+      const lectures = await lectureService.getAll();
       setEnrolledLectures(lectures.filter((l) => lectureIds.includes(l.id)));
     } catch { /* silent */ }
     finally { setLoading(false); }

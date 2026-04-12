@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BookOpen, Clock, MapPin, User } from 'lucide-react';
 import { PageHeader } from '../../components';
 import { apiClient } from '../../services/api';
+import { lectureService } from '../../services/lectureService';
 import { useAuth } from '../../store/AuthContext';
 import { formatClock } from '../../utils';
 import type { Lecture, Enrollment } from '../../types';
@@ -20,7 +21,7 @@ export const StudentLecturesPage = () => {
     try {
       const [enrollments, lectures] = await Promise.all([
         apiClient.get<Enrollment[]>(`/enrollments/student/${user.id}`),
-        apiClient.get<Lecture[]>('/lectures'),
+        lectureService.getAll(),
       ]);
       const enrolledIds = new Set(enrollments.map((e) => e.lectureId));
       setEnrolledLectures(lectures.filter((l) => enrolledIds.has(l.id)));
