@@ -29,7 +29,8 @@ services:
       # Docker bridge + .NET: DNS į „postgres“ kartais meta EAGAIN (11); IPv6 išjungimas padeda.
       DOTNET_SYSTEM_NET_DISABLEIPV6: "1"
       # Optional testing override: pin API time in development only.
-      FAKE_NOW: "2026-04-14T16:00:00+03:00"
+      FAKE_NOW: "2026-04-24T11:00:00+03:00"
+      APP_TIME_ZONE: "Europe/Vilnius"
       ConnectionStrings__DefaultConnection: >-
         Host=postgres;Port=5432;Database=iot_attendance;Username=postgres;Password=postgres
       Cors__AllowedOrigins__0: "http://localhost:5173"

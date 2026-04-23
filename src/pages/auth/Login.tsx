@@ -5,7 +5,7 @@ import { authService } from '../../services/authService';
 import { Mail, Lock, LogIn } from 'lucide-react';
 
 export const Login = () => {
-  const [email, setEmail] = useState('admin@school.edu');
+  const [email, setEmail] = useState('admin@gmail.com');
   const [password, setPassword] = useState('password');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -95,15 +95,6 @@ export const Login = () => {
 
         <div style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
           Don't have an account? <Link to="/register" style={{ color: 'var(--primary)', fontWeight: 500 }}>Register</Link>
-        </div>
-
-        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-          <p>Demo accounts (password: <strong>password</strong>):</p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.5rem', fontSize: '0.75rem' }}>
-            <code>admin@school.edu</code>
-            <code>lecturer@school.edu</code>
-            <code>student1@school.edu</code>
-          </div>
         </div>
       </form>
     </div>

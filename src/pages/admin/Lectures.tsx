@@ -235,7 +235,7 @@ export const LecturesPage = () => {
     <div>
       <PageHeader
         title="Lecture Management"
-        subtitle="Create lectures, set weekly time slot, assign students — all persisted via API."
+        subtitle="Create lectures, set weekly time slot, assign students"
         action={
           <button type="button" className="btn btn-primary" onClick={() => setCreateOpen(true)}>
             <Plus size={16} /> Create Lecture

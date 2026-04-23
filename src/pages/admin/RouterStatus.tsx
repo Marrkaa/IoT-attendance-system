@@ -81,7 +81,7 @@ export function RouterStatusPage() {
     <div>
       <PageHeader
         title="Router / IoT status"
-        subtitle="Teltonika RUTX11 nodes: connected clients and signal strength (from station dump). Prototype may use demo data."
+        subtitle="IoT nodes: connected clients and signal strength."
         action={
           <button type="button" className="btn btn-outline" onClick={manualRefresh} disabled={!selectedId || refreshing}>
             <RefreshCw size={16} style={{ marginRight: 6 }} />

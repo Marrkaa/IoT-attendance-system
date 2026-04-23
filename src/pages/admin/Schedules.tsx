@@ -111,7 +111,7 @@ export const SchedulesPage = () => {
     <div>
       <PageHeader
         title="Schedule Management"
-        subtitle="Weekly slots from the database. Create lecture first, then add or adjust slots here."
+        subtitle="Weekly slots from the database."
         action={
           <button type="button" className="btn btn-primary" onClick={() => setModalOpen(true)}>
             <Calendar size={16} /> Add schedule entry

@@ -95,16 +95,6 @@ export const AdminDashboard = () => {
 
   return (
     <div>
-      <PageHeader
-        title="System Overview"
-        subtitle={`Welcome back, ${user?.firstName}!`}
-        action={
-          <button type="button" className="btn btn-outline" onClick={() => void load()} disabled={loading}>
-            <RefreshCw size={16} /> {loading ? 'Refreshing…' : 'Update Status'}
-          </button>
-        }
-      />
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" style={{ marginBottom: '2rem' }}>
         <StatCard title="Total Users" value={users.length} icon={<Users size={32} />} iconBg="#EEF2FF" iconColor="var(--primary)" />
         <StatCard title="Active IoT Nodes" value={`${onlineRooms}/${rooms.length}`} icon={<Server size={32} />} iconBg="#D1FAE5" iconColor="#065F46" />

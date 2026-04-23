@@ -35,11 +35,6 @@ export function RadiusConfigPage() {
 
   return (
     <div>
-      <PageHeader
-        title="RADIUS configuration"
-        subtitle="Hotspot authentication and student RADIUS accounts (compatible with FreeRADIUS and this API)."
-      />
-
       <RadiusInfoCard />
 
       {error && (

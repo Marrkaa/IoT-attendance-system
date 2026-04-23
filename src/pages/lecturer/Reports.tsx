@@ -35,6 +35,25 @@ function lastOfMonth(d: Date): string {
 
 type RangeMode = 'day' | 'week' | 'month' | 'custom';
 
+function escapeCsvField(value: string | number | undefined | null): string {
+  if (value === undefined || value === null) return '';
+  const s = String(value);
+  if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 export const ReportsPage = () => {
   const { user } = useAuth();
   const location = useLocation();
@@ -118,7 +137,16 @@ export const ReportsPage = () => {
   const selectedLecture = lectures.find((l) => l.id === selectedLectureId);
 
   const exportCsv = () => {
-    const header = 'Date,Student,Email,Status,Check-in,Check-out,Duration (min)\n';
+    const headerCols = [
+      'Date',
+      'Student',
+      'Email',
+      'Status',
+      'Check-in',
+      'Check-out',
+      'Duration (min)',
+    ];
+    const header = headerCols.map(escapeCsvField).join(',');
     const rows = records.map((r) =>
       [
         r.date,
@@ -127,16 +155,14 @@ export const ReportsPage = () => {
         r.status,
         r.checkInTime ? new Date(r.checkInTime).toLocaleTimeString('en-US') : '',
         r.checkOutTime ? new Date(r.checkOutTime).toLocaleTimeString('en-US') : '',
-        r.connectionDurationMinutes?.toFixed(1) ?? '',
-      ].join(',')
-    ).join('\n');
-    const blob = new Blob([header + rows], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `attendance_${selectedLecture?.title ?? 'report'}_${dateFrom}_${dateTo}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+        r.connectionDurationMinutes != null ? r.connectionDurationMinutes.toFixed(1) : '',
+      ].map(escapeCsvField)
+        .join(',')
+    );
+    const body = [header, ...rows].join('\r\n');
+    const filename = `attendance_${(selectedLecture?.title ?? 'report').replace(/[\\/:"*?<>|]+/g, '_')}_${dateFrom}_${dateTo}.csv`;
+    const blob = new Blob(['\uFEFF', body], { type: 'text/csv;charset=utf-8' });
+    downloadBlob(blob, filename);
   };
 
   const exportXlsx = () => {

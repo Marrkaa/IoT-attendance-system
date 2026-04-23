@@ -1,0 +1,34 @@
+cd ~/Desktop/iot-attendance && docker compose exec -T postgres psql -U postgres -d iot_attendance <<'EOF'
+DO $$
+DECLARE
+  student_email text := 'test@gmail.com';
+  sid uuid;
+BEGIN
+  SELECT id INTO sid FROM users WHERE email = student_email;
+  IF sid IS NULL THEN
+    RAISE EXCEPTION 'Nerastas vartotojas: %', student_email;
+  END IF;
+
+  DELETE FROM attendance_records WHERE student_id = sid;
+
+  DELETE FROM wifi_connection_logs w
+  WHERE EXISTS (
+    SELECT 1 FROM student_devices d
+    WHERE d.student_id = sid
+      AND lower(replace(replace(w.client_mac_address, ':', ''), '-', '')) =
+          lower(replace(replace(d.mac_address, ':', ''), '-', ''))
+  )
+  OR EXISTS (
+    SELECT 1 FROM hotspot_sessions h
+    WHERE h.student_id = sid
+      AND h.device_mac IS NOT NULL
+      AND lower(replace(replace(w.client_mac_address, ':', ''), '-', '')) =
+          lower(replace(replace(h.device_mac, ':', ''), '-', ''))
+  );
+
+  DELETE FROM hotspot_sessions WHERE student_id = sid;
+  DELETE FROM student_devices WHERE student_id = sid;
+
+  RAISE NOTICE 'Išvalyta studentui % (id=%)', student_email, sid;
+END $$;
+EOF

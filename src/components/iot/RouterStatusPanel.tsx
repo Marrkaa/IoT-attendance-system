@@ -31,9 +31,6 @@ export function RouterStatusPanel({ node, status, loading }: Props) {
           <Wifi size={22} />
           <div>
             <div style={{ fontWeight: 600 }}>{node.hostname}</div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-              {node.model} · SSID: {node.hotspotSsid} · slenkstis: {node.signalThresholdDbm} dBm
-            </div>
           </div>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem' }}>
@@ -67,8 +64,8 @@ export function RouterStatusPanel({ node, status, loading }: Props) {
                   <th>MAC</th>
                   <th>IP</th>
                   <th>Hostname</th>
-                  <th>Signalas (dBm)</th>
-                  <th>Sutapatinimas</th>
+                  <th>Signal strength (dBm)</th>
+                  <th>User</th>
                 </tr>
               </thead>
               <tbody>
