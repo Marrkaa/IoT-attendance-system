@@ -1,0 +1,10 @@
+cd ~/Desktop/iot-attendance && docker compose exec -T postgres psql -U postgres -d iot_attendance <<'EOF'
+TRUNCATE TABLE attendance_records RESTART IDENTITY CASCADE;
+TRUNCATE TABLE wifi_connection_logs, hotspot_sessions, student_devices
+  RESTART IDENTITY CASCADE;
+
+SELECT 'attendance_records' AS tbl, COUNT(*)::bigint AS n FROM attendance_records
+UNION ALL SELECT 'wifi_connection_logs', COUNT(*)::bigint FROM wifi_connection_logs
+UNION ALL SELECT 'hotspot_sessions', COUNT(*)::bigint FROM hotspot_sessions
+UNION ALL SELECT 'student_devices', COUNT(*)::bigint FROM student_devices;
+EOF

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../store/AuthContext';
-import { Users, Server, AlertCircle, RefreshCw, BookOpen } from 'lucide-react';
+import { Users, Server, AlertCircle, BookOpen } from 'lucide-react';
 import { PageHeader, StatCard, StatusBadge } from '../../components';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { userService } from '../../services/userService';
@@ -15,6 +15,8 @@ export const AdminDashboard = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [lectures, setLectures] = useState<Lecture[]>([]);
+  /** Grafikas naudoja visą istoriją; lentelė – tik 8 naujausius. */
+  const [allAttendanceRecords, setAllAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [recentRecords, setRecentRecords] = useState<AttendanceRecord[]>([]);
   const [liveSignalByStudentId, setLiveSignalByStudentId] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -46,6 +48,7 @@ export const AdminDashboard = () => {
         const tb = new Date(b.checkInTime ?? b.timestamp ?? 0).getTime();
         return tb - ta;
       });
+      setAllAttendanceRecords(allRecords);
       setRecentRecords(allRecords.slice(0, 8));
 
       // Live signal fallback (from latest station dump / router status).
@@ -87,7 +90,7 @@ export const AdminDashboard = () => {
     const d = new Date();
     d.setMonth(d.getMonth() - (5 - idx));
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const monthRows = recentRecords.filter((r) => (r.date ?? '').startsWith(key));
+    const monthRows = allAttendanceRecords.filter((r) => (r.date ?? '').startsWith(key));
     const attended = monthRows.filter((r) => r.status === 'Present' || r.status === 'Late').length;
     const rate = monthRows.length > 0 ? Math.round((attended * 100) / monthRows.length) : 0;
     return { month: d.toLocaleString('en-US', { month: 'short' }), rate };

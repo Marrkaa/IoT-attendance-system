@@ -63,9 +63,21 @@ public class AttendanceController : ControllerBase
     [Authorize(Roles = "Lecturer,Administrator")]
     public async Task<ActionResult<AttendanceRecordDto>> ManualMark(ManualAttendanceRequest request)
     {
-        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var record = await _attendanceService.ManualMarkAsync(request, userId);
-        return Created("", record);
+        try
+        {
+            var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var isAdmin = User.IsInRole("Administrator");
+            var record = await _attendanceService.ManualMarkAsync(request, userId, isAdmin);
+            return Created("", record);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
     }
 
     [HttpPut("{id}")]
@@ -73,9 +85,21 @@ public class AttendanceController : ControllerBase
     public async Task<ActionResult<AttendanceRecordDto>> UpdateStatus(
         Guid id, UpdateAttendanceRequest request)
     {
-        var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        var record = await _attendanceService.UpdateStatusAsync(id, request, userId);
-        return Ok(record);
+        try
+        {
+            var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var isAdmin = User.IsInRole("Administrator");
+            var record = await _attendanceService.UpdateStatusAsync(id, request, userId, isAdmin);
+            return Ok(record);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
     }
 
     [HttpGet("live/{lectureId}")]

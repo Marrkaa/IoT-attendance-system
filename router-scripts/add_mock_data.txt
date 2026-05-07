@@ -1,0 +1,103 @@
+cd ~/Desktop/iot-attendance && docker compose exec -T postgres psql -U postgres -d iot_attendance <<'EOF'
+TRUNCATE TABLE attendance_records RESTART IDENTITY CASCADE;
+
+WITH bounds AS (
+  SELECT (
+    date_trunc(
+      'month',
+      (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Vilnius')::timestamp
+    ) + INTERVAL '1 month'
+  )::date AS first_next_month_day
+),
+win AS (
+  SELECT
+    (first_next_month_day - INTERVAL '6 months')::date AS range_start,
+    LEAST(
+      (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Vilnius')::date,
+      first_next_month_day - 1
+    ) AS range_end
+  FROM bounds
+)
+INSERT INTO attendance_records (
+  id, lecture_id, student_id, schedule_id, date, status,
+  check_in_time, check_out_time,
+  signal_strength_dbm, avg_signal_strength_dbm,
+  connection_duration_minutes,
+  is_manual_override, created_at, updated_at
+)
+SELECT
+  gen_random_uuid(),
+  e.lecture_id,
+  e.student_id,
+  s.schedule_id,
+  cal.dte::date,
+  v.final_status,
+  v.check_in_utc,
+  v.check_out_utc,
+  v.sig,
+  v.sig_avg,
+  v.duration_min,
+  FALSE,
+  now(),
+  now()
+FROM enrollments e
+JOIN win ON TRUE
+JOIN (
+  SELECT DISTINCT ON (lecture_id, day_of_week)
+    id AS schedule_id,
+    lecture_id,
+    day_of_week,
+    start_time,
+    end_time
+  FROM schedules
+  ORDER BY lecture_id, day_of_week, start_time
+) AS s ON s.lecture_id = e.lecture_id
+JOIN LATERAL generate_series(win.range_start, win.range_end, INTERVAL '1 day') AS cal(dte) ON TRUE
+JOIN LATERAL (
+  SELECT
+    (cal.dte + s.start_time::time)::timestamp AT TIME ZONE 'Europe/Vilnius' AS slot_start_utc,
+    (cal.dte + s.end_time::time)::timestamp AT TIME ZONE 'Europe/Vilnius' AS slot_end_utc
+) AS tz ON TRUE
+JOIN LATERAL (
+  SELECT
+    (extract(epoch FROM (tz.slot_end_utc - tz.slot_start_utc)) / 60.0)::double precision AS slot_min,
+    abs(hashtext(e.student_id::text || '|' || e.lecture_id::text || '|' || cal.dte::text)) AS h
+) AS rnd ON TRUE
+JOIN LATERAL (
+  SELECT
+    CASE
+      WHEN rnd.h % 5 = 0 THEN 'Absent'
+      WHEN rnd.h % 100 < 45 THEN 'Present'
+      WHEN rnd.h % 100 < 80 THEN 'Late'
+      ELSE 'Absent'
+    END::text AS final_status,
+    rnd.slot_min,
+    rnd.h,
+    tz.slot_start_utc,
+    tz.slot_end_utc
+) AS st ON TRUE
+JOIN LATERAL (
+  SELECT
+    st.final_status,
+    CASE WHEN st.final_status IN ('Present', 'Late') THEN
+      st.slot_start_utc - make_interval(secs => (1 + (st.h % 240)::int))
+    END AS check_in_utc,
+    CASE WHEN st.final_status IN ('Present', 'Late') THEN
+      st.slot_end_utc + make_interval(secs => ((st.h % 180)::int))
+    END AS check_out_utc,
+    CASE WHEN st.final_status IN ('Present', 'Late') THEN (-52 - ((st.h % 25)::int)) END AS sig,
+    CASE WHEN st.final_status IN ('Present', 'Late') THEN (-52 - ((st.h % 25)::int))::double precision END AS sig_avg,
+    CASE
+      WHEN st.final_status NOT IN ('Present', 'Late') THEN NULL::double precision
+      WHEN st.final_status = 'Present' THEN
+        least(st.slot_min * 0.93, greatest(45.0, st.slot_min * 0.78))
+      ELSE
+        least(st.slot_min * 0.62, greatest(22.0, st.slot_min * 0.42))
+    END AS duration_min
+) AS v ON TRUE
+WHERE extract(isodow FROM cal.dte)::int - 1 = s.day_of_week
+ON CONFLICT (student_id, lecture_id, date) DO NOTHING;
+
+SELECT status, count(*) AS n FROM attendance_records GROUP BY status ORDER BY status;
+SELECT to_char(date, 'YYYY-MM') AS ym, count(*) AS n FROM attendance_records GROUP BY 1 ORDER BY 1;
+EOF

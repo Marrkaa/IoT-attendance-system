@@ -87,8 +87,33 @@ public class AttendanceService
         );
     }
 
-    public async Task<AttendanceRecordDto> ManualMarkAsync(ManualAttendanceRequest request, Guid overrideBy)
+    /// <summary>Manual corrections: clearing times/duration when status is Absent (no phantom duration).</summary>
+    private static void ApplyManualStatus(AttendanceRecord r, AttendanceStatus status)
     {
+        r.Status = status;
+        if (status == AttendanceStatus.Absent)
+        {
+            r.CheckInTime = null;
+            r.CheckOutTime = null;
+            r.ConnectionDurationMinutes = null;
+            r.SignalStrengthDbm = null;
+            r.AvgSignalStrengthDbm = null;
+        }
+    }
+
+    public async Task<AttendanceRecordDto> ManualMarkAsync(
+        ManualAttendanceRequest request,
+        Guid actingUserId,
+        bool isAdministrator)
+    {
+        var lecture = await _db.Lectures.AsNoTracking()
+            .FirstOrDefaultAsync(l => l.Id == request.LectureId)
+            ?? throw new KeyNotFoundException("Lecture not found.");
+        if (!isAdministrator && lecture.LecturerId != actingUserId)
+            throw new UnauthorizedAccessException();
+
+        var status = Enum.Parse<AttendanceStatus>(request.Status);
+
         var existing = await _db.AttendanceRecords
             .FirstOrDefaultAsync(a =>
                 a.StudentId == request.StudentId &&
@@ -97,9 +122,9 @@ public class AttendanceService
 
         if (existing != null)
         {
-            existing.Status = Enum.Parse<AttendanceStatus>(request.Status);
+            ApplyManualStatus(existing, status);
             existing.IsManualOverride = true;
-            existing.OverrideBy = overrideBy;
+            existing.OverrideBy = actingUserId;
             existing.OverrideReason = request.Reason;
             existing.UpdatedAt = _time.UtcNow;
         }
@@ -111,12 +136,18 @@ public class AttendanceService
                 StudentId = request.StudentId,
                 ScheduleId = request.ScheduleId,
                 Date = DateOnly.Parse(request.Date),
-                Status = Enum.Parse<AttendanceStatus>(request.Status),
                 IsManualOverride = true,
-                OverrideBy = overrideBy,
+                OverrideBy = actingUserId,
                 OverrideReason = request.Reason,
-                CheckInTime = _time.UtcNow
+                CheckInTime = null,
+                CheckOutTime = null,
+                ConnectionDurationMinutes = null,
+                SignalStrengthDbm = null,
+                AvgSignalStrengthDbm = null,
+                CreatedAt = _time.UtcNow,
+                UpdatedAt = _time.UtcNow,
             };
+            ApplyManualStatus(existing, status);
             _db.AttendanceRecords.Add(existing);
         }
 
@@ -124,14 +155,24 @@ public class AttendanceService
         return await GetByIdAsync(existing.Id);
     }
 
-    public async Task<AttendanceRecordDto> UpdateStatusAsync(Guid id, UpdateAttendanceRequest request, Guid overrideBy)
+    public async Task<AttendanceRecordDto> UpdateStatusAsync(
+        Guid id,
+        UpdateAttendanceRequest request,
+        Guid actingUserId,
+        bool isAdministrator)
     {
-        var record = await _db.AttendanceRecords.FindAsync(id)
+        var record = await _db.AttendanceRecords
+            .Include(a => a.Lecture)
+            .FirstOrDefaultAsync(a => a.Id == id)
             ?? throw new KeyNotFoundException("Attendance record not found.");
 
-        record.Status = Enum.Parse<AttendanceStatus>(request.Status);
+        if (!isAdministrator && record.Lecture.LecturerId != actingUserId)
+            throw new UnauthorizedAccessException();
+
+        var status = Enum.Parse<AttendanceStatus>(request.Status);
+        ApplyManualStatus(record, status);
         record.IsManualOverride = true;
-        record.OverrideBy = overrideBy;
+        record.OverrideBy = actingUserId;
         record.OverrideReason = request.Reason;
         record.UpdatedAt = _time.UtcNow;
 

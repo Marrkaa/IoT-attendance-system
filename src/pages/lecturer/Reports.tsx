@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../store/AuthContext';
 import { useLocation } from 'react-router-dom';
-import { Calendar, Download } from 'lucide-react';
+import { Calendar, Download, PenLine, UserPlus } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { PageHeader, StatusBadge } from '../../components';
+import { PageHeader, StatusBadge, Modal } from '../../components';
 import { apiClient } from '../../services/api';
 import { attendanceService } from '../../services/attendanceService';
-import type { Lecture, AttendanceRecord, DailyAttendanceSummary } from '../../types';
+import { enrollmentService } from '../../services/enrollmentService';
+import type {
+  AttendanceRecord,
+  AttendanceStatus,
+  DailyAttendanceSummary,
+  Enrollment,
+  Lecture,
+  Schedule,
+} from '../../types';
 
 function mondayOfWeek(d: Date): string {
   const day = d.getDay();
@@ -34,6 +42,20 @@ function lastOfMonth(d: Date): string {
 }
 
 type RangeMode = 'day' | 'week' | 'month' | 'custom';
+
+function backendDayOfWeekFromIsoDate(dateIso: string): number {
+  const d = new Date(`${dateIso}T12:00:00`);
+  return (d.getDay() + 6) % 7;
+}
+
+/** Earliest schedule slot for that calendar day (0=Mon) from lecture.schedules returned by the API. */
+function scheduleForWeekday(lecture: Lecture | undefined, dateIso: string): Schedule | undefined {
+  if (!lecture?.schedules?.length) return undefined;
+  const dow = backendDayOfWeekFromIsoDate(dateIso);
+  const slots = lecture.schedules.filter((s) => s.dayOfWeek === dow);
+  if (slots.length === 0) return undefined;
+  return [...slots].sort((a, b) => a.startTime.localeCompare(b.startTime))[0];
+}
 
 function escapeCsvField(value: string | number | undefined | null): string {
   if (value === undefined || value === null) return '';
@@ -68,6 +90,17 @@ export const ReportsPage = () => {
   const [summary, setSummary] = useState<DailyAttendanceSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingLectures, setLoadingLectures] = useState(true);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [editRecord, setEditRecord] = useState<AttendanceRecord | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualStudentId, setManualStudentId] = useState('');
+  const [manualDate, setManualDate] = useState('');
+  const [manualStatus, setManualStatus] = useState<AttendanceStatus>('Absent');
+  const [manualReason, setManualReason] = useState('');
+  const [editStatus, setEditStatus] = useState<AttendanceStatus>('Present');
+  const [editReason, setEditReason] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -80,6 +113,14 @@ export const ReportsPage = () => {
       finally { setLoadingLectures(false); }
     })();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!selectedLectureId) {
+      setEnrollments([]);
+      return;
+    }
+    void enrollmentService.getByLecture(selectedLectureId).then(setEnrollments).catch(() => setEnrollments([]));
+  }, [selectedLectureId]);
 
   const applyRangeMode = (mode: RangeMode) => {
     setRangeMode(mode);
@@ -135,6 +176,78 @@ export const ReportsPage = () => {
   const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 0;
 
   const selectedLecture = lectures.find((l) => l.id === selectedLectureId);
+
+  const openEdit = (r: AttendanceRecord) => {
+    setFormError(null);
+    setEditStatus(r.status);
+    setEditReason('');
+    setEditRecord(r);
+  };
+
+  const saveEdit = async () => {
+    if (!editRecord) return;
+    setSaving(true);
+    setFormError(null);
+    try {
+      await attendanceService.updateStatus(
+        editRecord.id,
+        editStatus,
+        editReason.trim() || undefined,
+      );
+      setEditRecord(null);
+      await fetchReport();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to save';
+      setFormError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openManual = () => {
+    setFormError(null);
+    setManualReason('');
+    setManualStatus('Absent');
+    setManualDate(dateFrom);
+    const firstEnr = enrollments[0];
+    setManualStudentId(firstEnr?.studentId ?? '');
+    setManualOpen(true);
+  };
+
+  const saveManual = async () => {
+    if (!selectedLectureId || !manualStudentId || !manualDate || !selectedLecture) {
+      setFormError('Choose a student and a date.');
+      return;
+    }
+    if (manualDate < dateFrom || manualDate > dateTo) {
+      setFormError('Date must be within the selected From–To range.');
+      return;
+    }
+    const sch = scheduleForWeekday(selectedLecture, manualDate);
+    if (!sch) {
+      setFormError('No lecture schedule applies to the weekday of the selected date.');
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      await attendanceService.manualMark({
+        studentId: manualStudentId,
+        lectureId: selectedLectureId,
+        scheduleId: sch.id,
+        date: manualDate,
+        status: manualStatus,
+        reason: manualReason.trim() || undefined,
+      });
+      setManualOpen(false);
+      await fetchReport();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to save';
+      setFormError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const exportCsv = () => {
     const headerCols = [
@@ -244,6 +357,14 @@ export const ReportsPage = () => {
           <button type="button" className="btn btn-outline" onClick={exportXlsx} disabled={records.length === 0}>
             <Download size={14} /> Export XLSX
           </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={openManual}
+            disabled={!selectedLectureId || enrollments.length === 0}
+          >
+            <UserPlus size={14} /> Manual entry
+          </button>
         </div>
       </div>
 
@@ -326,7 +447,16 @@ export const ReportsPage = () => {
         {loading ? (
           <p style={{ padding: '1rem', color: 'var(--text-secondary)' }}>Loading…</p>
         ) : records.length === 0 ? (
-          <p style={{ padding: '1rem', color: 'var(--text-muted)' }}>No attendance records found for the selected period.</p>
+          <div style={{ padding: '1rem' }}>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+              No attendance records for the selected period.
+            </p>
+            {enrollments.length > 0 && selectedLectureId && (
+              <button type="button" className="btn btn-outline" onClick={openManual}>
+                <UserPlus size={14} /> Add manual record
+              </button>
+            )}
+          </div>
         ) : (
           <div className="table-container">
             <table className="table">
@@ -337,6 +467,7 @@ export const ReportsPage = () => {
                   <th>Status</th>
                   <th>Check-in</th>
                   <th>Duration</th>
+                  <th style={{ width: '110px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -354,6 +485,22 @@ export const ReportsPage = () => {
                     <td style={{ fontSize: '0.875rem' }}>
                       {r.connectionDurationMinutes != null ? `${r.connectionDurationMinutes.toFixed(1)} min` : '—'}
                     </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                          title="Edit status / manual override"
+                          onClick={() => openEdit(r)}
+                        >
+                          <PenLine size={12} /> Edit
+                        </button>
+                        {r.isManualOverride && (
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Manual</span>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -361,6 +508,120 @@ export const ReportsPage = () => {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={editRecord != null}
+        onClose={() => { if (!saving) { setEditRecord(null); setFormError(null); } }}
+        title="Edit status"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {editRecord && (
+            <>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                {editRecord.student?.firstName} {editRecord.student?.lastName} · {editRecord.date}
+              </p>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Status</label>
+                <select
+                  className="form-input"
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as AttendanceStatus)}
+                >
+                  <option value="Present">Present</option>
+                  <option value="Late">Late</option>
+                  <option value="Absent">Absent</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Reason (optional)</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  placeholder="e.g. sick leave, excuse note…"
+                />
+              </div>
+            </>
+          )}
+          {formError && <div className="badge badge-danger">{formError}</div>}
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn-outline" disabled={saving} onClick={() => { setEditRecord(null); setFormError(null); }}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void saveEdit()}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={manualOpen}
+        onClose={() => { if (!saving) { setManualOpen(false); setFormError(null); } }}
+        title="Manual attendance entry"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            Creates or updates one record for an enrolled student on a given date using the lecture&apos;s weekly schedule slot for that weekday.
+          </p>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Student</label>
+            <select
+              className="form-input"
+              value={manualStudentId}
+              onChange={(e) => setManualStudentId(e.target.value)}
+            >
+              {enrollments.map((en) => (
+                <option key={en.id} value={en.studentId}>
+                  {en.student ? `${en.student.firstName} ${en.student.lastName} (${en.student.email})` : en.studentId}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Date ({dateFrom} – {dateTo})</label>
+            <input
+              className="form-input"
+              type="date"
+              min={dateFrom}
+              max={dateTo}
+              value={manualDate}
+              onChange={(e) => setManualDate(e.target.value)}
+            />
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Status</label>
+            <select
+              className="form-input"
+              value={manualStatus}
+              onChange={(e) => setManualStatus(e.target.value as AttendanceStatus)}
+            >
+              <option value="Present">Present</option>
+              <option value="Late">Late</option>
+              <option value="Absent">Absent</option>
+            </select>
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Reason (optional)</label>
+            <input
+              className="form-input"
+              type="text"
+              value={manualReason}
+              onChange={(e) => setManualReason(e.target.value)}
+            />
+          </div>
+          {formError && <div className="badge badge-danger">{formError}</div>}
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn-outline" disabled={saving} onClick={() => { setManualOpen(false); setFormError(null); }}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-primary" disabled={saving} onClick={() => void saveManual()}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 #!/bin/sh
-API_URL="http://192.168.1.119:5000/api/iot-nodes/station-dump"
+API_URL="http://192.168.1.110:5000/api/iot-nodes/station-dump"
 API_KEY="rutx11-station-dump-secret-key"
 IOT_NODE_ID="7292d7e9-37fe-463e-ad4a-80349432f049"
 
