@@ -14,6 +14,13 @@ export const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Invalid email format (e.g. name@domain.com)');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -31,7 +38,16 @@ export const Login = () => {
       <h2 className="card-title" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Welcome Back</h2>
 
       {error && (
-        <div className="badge badge-danger" style={{ display: 'block', textAlign: 'center', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem' }}>
+        <div style={{
+          background: '#FEE2E2',
+          color: '#991B1B',
+          border: '1px solid #FECACA',
+          borderRadius: 'var(--radius-md)',
+          padding: '0.75rem 1rem',
+          marginBottom: '1rem',
+          fontSize: '0.875rem',
+          textAlign: 'center'
+        }}>
           {error}
         </div>
       )}
@@ -45,7 +61,7 @@ export const Login = () => {
             </div>
             <input
               id="email"
-              type="email"
+              type="text"
               className="form-input"
               style={{ paddingLeft: '2.5rem' }}
               value={email}

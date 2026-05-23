@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Lock, CheckCircle } from 'lucide-react';
+import { authService } from '../../services/authService';
 
 export const ResetPassword = () => {
   const { token } = useParams<{ token: string }>();
@@ -25,9 +26,14 @@ export const ResetPassword = () => {
     }
 
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setLoading(false);
-    setSuccess(true);
+    try {
+      await authService.resetPassword(token, password);
+      setSuccess(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Reset failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!token) {

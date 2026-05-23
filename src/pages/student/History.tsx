@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Calendar } from 'lucide-react';
 import { useAuth } from '../../store/AuthContext';
 import { PageHeader, StatusBadge } from '../../components';
 import { attendanceService } from '../../services/attendanceService';
@@ -54,11 +53,6 @@ export const HistoryPage = () => {
       <PageHeader
         title="Attendance History"
         subtitle="Your complete attendance record"
-        action={
-          <button type="button" className="btn btn-outline">
-            <Calendar size={16} /> Export
-          </button>
-        }
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" style={{ marginBottom: '1.5rem' }}>

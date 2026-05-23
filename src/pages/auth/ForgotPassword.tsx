@@ -1,35 +1,42 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Send } from 'lucide-react';
+import { authService } from '../../services/authService';
 
 export const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [resetLink, setResetLink] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
-    // Simulate password reset request
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setLoading(false);
-    setSent(true);
+    try {
+      const token = await authService.forgotPassword(email);
+      setResetLink(`${window.location.origin}/reset-password/${token}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Request failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (sent) {
+  if (resetLink) {
     return (
-      <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+      <div style={{ padding: '1rem 0' }}>
         <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#DBEAFE', color: '#1E40AF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
           <Send size={24} />
         </div>
-        <h2 className="card-title" style={{ marginBottom: '0.5rem' }}>Check Your Email</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-          We've sent a password reset link to <strong>{email}</strong>. Please check your inbox.
+        <h2 className="card-title" style={{ marginBottom: '0.5rem', textAlign: 'center' }}>Reset Link Generated</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem', textAlign: 'center' }}>
+          Copy the link below and open it in your browser:
         </p>
-        <Link to="/" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+        <div style={{ background: '#F1F5F9', borderRadius: 'var(--radius-md)', padding: '0.75rem', fontSize: '0.75rem', wordBreak: 'break-all', marginBottom: '1rem', color: 'var(--primary)' }}>
+          <a href={resetLink}>{resetLink}</a>
+        </div>
+        <Link to="/" className="btn btn-primary btn-block" style={{ textDecoration: 'none', display: 'flex', justifyContent: 'center' }}>
           Back to Login
         </Link>
       </div>

@@ -138,10 +138,6 @@ public class RouterPollingService
             s.StartTime <= localTime &&
             s.EndTime >= localTime);
 
-        // Last RADIUS accounting (or Start): without new packets the session is treated as stale for the UI after this window.
-        // Station dump (Wi‑Fi) only sees L2 association — can appear before captive portal and linger after disconnect.
-        var liveEvidenceCutoff = _time.UtcNow.AddMinutes(-2);
-
         var result = new List<LiveAttendanceDto>();
 
         foreach (var enrollment in lecture.Enrollments)
@@ -162,8 +158,7 @@ public class RouterPollingService
                         h.IoTNodeId == iotNode.Id &&
                         h.IsActive &&
                         h.EndTime == null &&
-                        h.StartTime >= todayUtc &&
-                        (h.LastAccountingAt ?? h.StartTime) >= liveEvidenceCutoff)
+                        h.StartTime >= todayUtc)
                     .OrderByDescending(h => h.StartTime)
                     .FirstOrDefaultAsync();
             }
@@ -178,7 +173,7 @@ public class RouterPollingService
                     .Where(w =>
                         w.IoTNodeId == iotNode.Id &&
                         activeMacs.Contains(w.ClientMacAddress) &&
-                        w.Timestamp > liveEvidenceCutoff)
+                        w.Timestamp > todayUtc)
                     .OrderByDescending(w => w.Timestamp)
                     .FirstOrDefaultAsync();
             }

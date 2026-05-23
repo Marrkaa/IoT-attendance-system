@@ -562,9 +562,6 @@ export const ReportsPage = () => {
         title="Manual attendance entry"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            Creates or updates one record for an enrolled student on a given date using the lecture&apos;s weekly schedule slot for that weekday.
-          </p>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Student</label>
             <select

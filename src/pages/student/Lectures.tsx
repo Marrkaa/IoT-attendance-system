@@ -41,11 +41,6 @@ export const StudentLecturesPage = () => {
       <PageHeader
         title="My Lectures"
         subtitle={`You are enrolled in ${enrolledLectures.length} lectures`}
-        action={
-          <button type="button" className="btn btn-outline">
-            <BookOpen size={16} /> Browse Catalog
-          </button>
-        }
       />
 
       <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Enrolled Lectures</h2>

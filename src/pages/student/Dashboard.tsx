@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../store/AuthContext';
-import { Calendar, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, XCircle } from 'lucide-react';
 import { PageHeader, StatCard, StatusBadge } from '../../components';
 import { attendanceService } from '../../services/attendanceService';
 import { apiClient } from '../../services/api';
@@ -44,11 +44,6 @@ export const StudentDashboard = () => {
       <PageHeader
         title="Student Dashboard"
         subtitle="Track your attendance and upcoming classes"
-        action={
-          <button type="button" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Calendar size={16} /> View Full Schedule
-          </button>
-        }
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" style={{ marginBottom: '2rem' }}>

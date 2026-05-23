@@ -13,7 +13,7 @@ win AS (
   SELECT
     (first_next_month_day - INTERVAL '6 months')::date AS range_start,
     LEAST(
-      (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Vilnius')::date,
+      (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Vilnius')::date - 1,
       first_next_month_day - 1
     ) AS range_end
   FROM bounds

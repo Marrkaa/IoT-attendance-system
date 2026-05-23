@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
 import { PageHeader } from '../../components';
 import { RouterStatusPanel } from '../../components/iot/RouterStatusPanel';
 import { iotNodeService } from '../../services/iotNodeService';
@@ -64,30 +63,12 @@ export function RouterStatusPage() {
     };
   }, [selectedId]);
 
-  const manualRefresh = async () => {
-    if (!selectedId) return;
-    setRefreshing(true);
-    try {
-      const n = await iotNodeService.getById(selectedId);
-      const s = await iotNodeService.getRouterStatus(selectedId);
-      setNode(n);
-      setStatus(s);
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   return (
     <div>
       <PageHeader
         title="Router / IoT status"
         subtitle="IoT nodes: connected clients and signal strength."
-        action={
-          <button type="button" className="btn btn-outline" onClick={manualRefresh} disabled={!selectedId || refreshing}>
-            <RefreshCw size={16} style={{ marginRight: 6 }} />
-            Refresh
-          </button>
-        }
       />
 
       <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1rem' }}>

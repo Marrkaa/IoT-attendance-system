@@ -133,7 +133,7 @@ export const SchedulesPage = () => {
             style={{
               display: 'grid',
               gridTemplateColumns: `80px repeat(${days.length}, 1fr)`,
-              gridAutoRows: '72px',
+              gridAutoRows: 'minmax(72px, auto)',
               border: '1px solid var(--border)',
               minWidth: '980px',
             }}
@@ -262,7 +262,6 @@ export const SchedulesPage = () => {
             </select>
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Day (0 = Monday)</label>
             <select className="form-input" value={form.dayOfWeek} onChange={(e) => setForm((f) => ({ ...f, dayOfWeek: parseInt(e.target.value, 10) }))}>
               {days.map((d, i) => (
                 <option key={d} value={i}>

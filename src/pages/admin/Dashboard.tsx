@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../store/AuthContext';
-import { Users, Server, AlertCircle, BookOpen } from 'lucide-react';
+import { Users, Server, BookOpen } from 'lucide-react';
 import { PageHeader, StatCard, StatusBadge } from '../../components';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { userService } from '../../services/userService';
@@ -98,11 +98,10 @@ export const AdminDashboard = () => {
 
   return (
     <div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" style={{ marginBottom: '2rem' }}>
+      <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '2rem' }}>
         <StatCard title="Total Users" value={users.length} icon={<Users size={32} />} iconBg="#EEF2FF" iconColor="var(--primary)" />
         <StatCard title="Active IoT Nodes" value={`${onlineRooms}/${rooms.length}`} icon={<Server size={32} />} iconBg="#D1FAE5" iconColor="#065F46" />
         <StatCard title="Lectures" value={lectures.length} icon={<BookOpen size={32} />} iconBg="#FEF3C7" iconColor="#92400E" />
-        <StatCard title="System Alerts" value={0} icon={<AlertCircle size={32} />} iconBg="#FEE2E2" iconColor="#991B1B" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
