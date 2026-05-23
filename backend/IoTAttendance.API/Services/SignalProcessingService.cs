@@ -12,13 +12,18 @@ namespace IoTAttendance.API.Services;
 public class SignalProcessingService
 {
     private readonly AppDbContext _db;
+    private readonly IAppTimeProvider _time;
 
     // Minimum connection duration (minutes) to mark as Present
     private const double MinPresentDurationMinutes = 15.0;
     // Late threshold - if connected after this many minutes from lecture start
     private const double LateThresholdMinutes = 10.0;
 
-    public SignalProcessingService(AppDbContext db) => _db = db;
+    public SignalProcessingService(AppDbContext db, IAppTimeProvider time)
+    {
+        _db = db;
+        _time = time;
+    }
 
     /// <summary>
     /// Process a signal reading for a student and update attendance if a lecture is active.
@@ -29,10 +34,13 @@ public class SignalProcessingService
         int signalStrengthDbm,
         DateTime timestamp)
     {
-        // Find active schedule for this room at the current time
-        var now = TimeOnly.FromDateTime(timestamp);
-        var dayOfWeek = ((int)timestamp.DayOfWeek + 6) % 7; // Convert to 0=Monday
-        var today = DateOnly.FromDateTime(timestamp);
+        // Schedules are stored in local time (Europe/Vilnius), but `timestamp` arrives in UTC.
+        // Convert to local before matching against schedule slots, otherwise a 13:59 UTC reading
+        // would incorrectly match a 13:30 LOCAL lecture (which is actually 10:30 UTC).
+        var localTimestamp = _time.ToLocal(timestamp);
+        var now = TimeOnly.FromDateTime(localTimestamp);
+        var dayOfWeek = ((int)localTimestamp.DayOfWeek + 6) % 7; // Convert to 0=Monday
+        var today = DateOnly.FromDateTime(localTimestamp);
 
         var activeSchedule = await _db.Schedules
             .Include(s => s.Lecture)

@@ -165,14 +165,22 @@ public class RouterPollingService
 
             var radiusConnected = radiusSession != null;
 
+            // Prefer the live RADIUS session's MAC for the signal lookup. When the same phone is
+            // re‑used by a different account, that account has no StudentDevices row yet (MAC is
+            // owned by the previous student), so `activeMacs` would be empty and we'd lose the signal.
+            // The RADIUS session is authoritative for "who is connected right now" and carries the MAC.
+            var signalMacs = radiusSession?.DeviceMac is { Length: > 0 } sessionMac
+                ? new List<string> { sessionMac }
+                : activeMacs;
+
             // Signal only when a valid RADIUS session exists (hotspot completed); otherwise Wi‑Fi alone would show “online”.
             WifiConnectionLog? latestLog = null;
-            if (iotNode != null && activeMacs.Count != 0 && radiusConnected)
+            if (iotNode != null && signalMacs.Count != 0 && radiusConnected)
             {
                 latestLog = await _db.WifiConnectionLogs
                     .Where(w =>
                         w.IoTNodeId == iotNode.Id &&
-                        activeMacs.Contains(w.ClientMacAddress) &&
+                        signalMacs.Contains(w.ClientMacAddress) &&
                         w.Timestamp > todayUtc)
                     .OrderByDescending(w => w.Timestamp)
                     .FirstOrDefaultAsync();

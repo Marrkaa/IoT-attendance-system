@@ -283,7 +283,6 @@ public class AttendanceService
             foreach (var group in grouped)
             {
                 var studentId = group.Key;
-                seenStudents.Add(studentId);
 
                 // Keep only the overlap with scheduled lecture windows.
                 double totalDuration = 0;
@@ -343,6 +342,11 @@ public class AttendanceService
 
                 if (totalDuration <= 0 || !firstOverlap.HasValue)
                     continue;
+
+                // Mark as "seen" only after we confirmed real overlap with a slot, so that
+                // students whose sessions happen entirely outside lecture slots are still
+                // finalized as Absent below.
+                seenStudents.Add(studentId);
 
                 var avgSignal = group.Where(s => s.AvgSignalDbm.HasValue)
                     .Select(s => s.AvgSignalDbm!.Value).DefaultIfEmpty(0).Average();
